@@ -10,6 +10,7 @@ services:
     environment:
       - GOOGLE_APPLICATION_DEFAULT_CREDENTIALS=/tmp/adc.json
       - PORT=3000
+      - DEFAULT_BUCKETS=llm-d-benchmarks
     ports:
       - "8081:5173"
       - "3000:3000"

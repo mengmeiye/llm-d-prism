@@ -60,12 +60,12 @@ const SCATTER_DATA_OPTIMAL_SHIFTED = Array.from({ length: 60 }).map((_, i) => ({
 const HISTORICAL_DATA = Array.from({ length: 30 }).map((_, i) => {
     const date = new Date();
     date.setDate(date.getDate() - (29 - i));
-    
+
     let cacheHitTTFT = 280 + Math.random() * 40;
     if (i > 12 && i < 16) {
-        cacheHitTTFT += 200 + Math.random() * 150; 
+        cacheHitTTFT += 200 + Math.random() * 150;
     }
-    
+
     return {
         date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         optimal_ttft_p99: cacheHitTTFT,
@@ -80,7 +80,7 @@ const CustomScatterTooltip = ({ active, payload }) => {
         const isOptimal = payload[0].name.includes("Optimal");
         const version = isOptimal ? "Commit: 4a9f21 (v1.3.0-igw)" : "Commit: d8b3c1 (v1.2.0)";
         const outcome = isOptimal ? "Cache Hit" : "Cache Miss";
-        
+
         return (
             <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-2xl font-mono text-xs z-[100]">
                 <p className="font-bold text-white mb-1">Request #{data.req_id} <span className={isOptimal ? "text-emerald-400" : "text-slate-400"}>({outcome})</span></p>
@@ -100,7 +100,7 @@ const CustomTputTooltip = ({ active, payload, label }) => {
         const optimal = payload.find(p => p.dataKey === 'optimal_tput')?.value || 0;
         const baseline = payload.find(p => p.dataKey === 'baseline_tput')?.value || 0;
         const speedup = ((optimal - baseline) / baseline) * 100;
-        
+
         return (
             <div className="bg-slate-900 border border-slate-700 p-3 rounded-xl shadow-2xl font-mono text-xs z-[100]">
                 <p className="font-bold text-white mb-1">QPS: {label}</p>
@@ -130,8 +130,8 @@ const CustomReferenceLabel = (props) => {
             <rect x={viewBox.x} y={viewBox.y - 30} width="160" height="30" fill="transparent" />
             <g className="opacity-60 group-hover:opacity-100 transition-opacity">
                 <circle cx={viewBox.x + 125} cy={viewBox.y - 15} r="10" fill="#0f172a" stroke="#334155" />
-                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="#94a3b8" strokeWidth="2" fill="none" transform="translate(115, -23) scale(0.8)" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="#94a3b8" strokeWidth="2" fill="none" transform="translate(115, -23) scale(0.8)" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="#94a3b8" strokeWidth="2" fill="none" transform="translate(115, -23) scale(0.8)" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="#94a3b8" strokeWidth="2" fill="none" transform="translate(115, -23) scale(0.8)" strokeLinecap="round" strokeLinejoin="round" />
             </g>
         </g>
     );
@@ -139,15 +139,15 @@ const CustomReferenceLabel = (props) => {
 
 const RichSchedulingTooltip = ({ active, payload, zoomXAxis, zoomYAxis }) => {
     if (!active || !payload || !payload.length) return null;
-    
+
     const pl = payload[0].payload;
     const hw = pl.hardware || 'H100';
     const model = pl.model_name || 'Model';
     const qpsVal = pl.qps ?? pl.y ?? 'N/A';
-    
+
     const xLabelMap = { tpot: 'TPOT', ntpot: 'NTPOT', ttft: 'TTFT', itl: 'ITL', tokens_sec: 'Tokens/sec', e2e: 'E2E' };
     const yLabelMap = { output: 'Out Tok/s', input: 'In Tok/s', total: 'Tot Tok/s', qps: 'QPS', cost: 'Cost' };
-    
+
     const xLabel = xLabelMap[zoomXAxis] || 'X';
     const yLabel = yLabelMap[zoomYAxis] || 'Y';
 
@@ -201,7 +201,7 @@ const RichSchedulingTooltip = ({ active, payload, zoomXAxis, zoomYAxis }) => {
                                     const epl = entry.payload;
                                     const xVal = epl.dynamic_x ?? epl.x;
                                     const yVal = epl.dynamic_y ?? epl.y;
-                                    
+
                                     let label = entry.name;
                                     if (groupName !== 'Other') {
                                         label = label.replace('Standard Kubernetes ', '').replace('Approx. prefix aware routing ', '').replace('Baseline ', '').replace('Router ', '');
@@ -245,7 +245,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
         const fetchData = async () => {
             setLoading(true);
             const reports = await scanInferenceScheduling();
-            
+
             const grouped = {};
             reports.forEach(r => {
                 if (r.stage === 0) return; // Skip stage 0
@@ -269,7 +269,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                 grouped[q][`${prefix}_itl_p99`] = parseFloat(r.itl.p99.toFixed(2));
             });
             const denseData = Object.values(grouped).sort((a, b) => a.qps - b.qps);
-            
+
             setGcsData(denseData);
             if (reports && reports.length > 0) {
                 setReportsMeta(reports[0]);
@@ -282,7 +282,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
     const [copied, setCopied] = useState(false);
     const [timeHorizon, setTimeHorizon] = useState('snapshot');
     const [targetQps, setTargetQps] = useState(5);
-    
+
     const [provider, setProvider] = useState('GCP');
     const [hardware, setHardware] = useState(() => {
         const params = new URLSearchParams(window.location.search);
@@ -332,7 +332,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
             const gain99 = base99 && opt99 ? ((base99 - opt99) / base99) * 100 : 0;
             return [row.qps, Math.round(base50), Math.round(opt50), Math.round(base99), Math.round(opt99), Math.round(gain99)].join(',');
         });
-        
+
         const csvContent = [headers.join(','), ...rows].join('\n');
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const url = URL.createObjectURL(blob);
@@ -347,13 +347,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
 
     const handleLegendClick = (e) => {
         const { value } = e;
-        setHiddenSeries(prev => 
-            prev.includes(value) 
-                ? prev.filter(v => v !== value) 
+        setHiddenSeries(prev =>
+            prev.includes(value)
+                ? prev.filter(v => v !== value)
                 : [...prev, value]
         );
     };
-        const ttftData = React.useMemo(() => {
+    const ttftData = React.useMemo(() => {
         const getSeries = (prefix, percentile) => {
             return gcsData
                 .filter(d => d[`${prefix}_ttft_${percentile}`] !== undefined)
@@ -398,10 +398,10 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
             // Only compute input rate if the point belongs to that series
             const baseline_input_token_rate = d.baseline_ttft_p50 !== undefined ? d.qps * 512 : null;
             const router_input_token_rate = d.router_ttft_p50 !== undefined ? d.qps * 512 : null;
-            
+
             const b_out = d.baseline_output_token_rate ?? null;
             const r_out = d.router_output_token_rate ?? null;
-            
+
             return {
                 ...d,
                 baseline_input_token_rate,
@@ -416,9 +416,9 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
     const scatterData = React.useMemo(() => {
         const routerPoints = gcsData.filter(d => d.router_ttft_p50 !== undefined);
         const baselinePoints = gcsData.filter(d => d.baseline_ttft_p50 !== undefined);
-        
+
         const pKey = selectedPercentile.toLowerCase();
-        
+
         const baseMapped = baselinePoints.map(d => ({
             qps: d.qps,
             ttft: d[`baseline_ttft_${pKey}`],
@@ -427,7 +427,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
             output: d.baseline_output_token_rate,
             total: (d.qps * 512) + (d.baseline_output_token_rate || 0)
         }));
-        
+
         const routerMapped = routerPoints.map(d => ({
             qps: d.qps,
             ttft: d[`router_ttft_${pKey}`],
@@ -436,7 +436,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
             output: d.router_output_token_rate,
             total: (d.qps * 512) + (d.router_output_token_rate || 0)
         }));
-        
+
         return {
             ttft_baseline: [...baseMapped].sort((a, b) => a.ttft - b.ttft),
             ttft_router: [...routerMapped].sort((a, b) => a.ttft - b.ttft),
@@ -450,14 +450,14 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
     const tableData = React.useMemo(() => {
         const routerPoints = gcsData.filter(d => d.router_ttft_p50 !== undefined);
         const baselinePoints = gcsData.filter(d => d.baseline_ttft_p50 !== undefined).sort((a, b) => a.qps - b.qps);
-        
+
         const interpolate = (x, points, key) => {
             if (points.length === 0) return { value: null, interpolated: false };
-            
+
             // Find exact match (within small tolerance)
             const exact = points.find(p => Math.abs(p.qps - x) < 0.1);
             if (exact) return { value: exact[key], interpolated: false };
-            
+
             // Find surrounding points
             let lower = null;
             let upper = null;
@@ -470,11 +470,11 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                     break;
                 }
             }
-            
+
             if (!lower && !upper) return { value: null, interpolated: false };
             if (!lower) return { value: upper[key], interpolated: true }; // Extrapolation
             if (!upper) return { value: lower[key], interpolated: true }; // Extrapolation
-            
+
             const ratio = (x - lower.qps) / (upper.qps - lower.qps);
             const val = lower[key] + ratio * (upper[key] - lower[key]);
             return { value: val, interpolated: true };
@@ -486,39 +486,39 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
             const itl99Result = interpolate(qps, baselinePoints, 'baseline_itl_p99');
             const ntpot99Result = interpolate(qps, baselinePoints, 'baseline_ntpot_p99');
             const tpot99Result = interpolate(qps, baselinePoints, 'baseline_tpot_p99');
-            
+
             const ttft90Result = interpolate(qps, baselinePoints, 'baseline_ttft_p90');
             const itl90Result = interpolate(qps, baselinePoints, 'baseline_itl_p90');
             const ntpot90Result = interpolate(qps, baselinePoints, 'baseline_ntpot_p90');
             const tpot90Result = interpolate(qps, baselinePoints, 'baseline_tpot_p90');
-            
+
             const ttft50Result = interpolate(qps, baselinePoints, 'baseline_ttft_p50');
             const itl50Result = interpolate(qps, baselinePoints, 'baseline_itl_p50');
             const ntpot50Result = interpolate(qps, baselinePoints, 'baseline_ntpot_p50');
             const tpot50Result = interpolate(qps, baselinePoints, 'baseline_tpot_p50');
-            
+
             const outputRateResult = interpolate(qps, baselinePoints, 'baseline_output_token_rate');
-            
+
             return {
                 qps: Math.round(qps * 10) / 10,
-                
+
                 router_ttft_p99: rp.router_ttft_p99,
                 router_itl_p99: rp.router_itl_p99,
                 router_ntpot_p99: rp.router_ntpot_p99,
                 router_tpot_p99: rp.router_tpot_p99,
-                
+
                 router_ttft_p90: rp.router_ttft_p90,
                 router_itl_p90: rp.router_itl_p90,
                 router_ntpot_p90: rp.router_ntpot_p90,
                 router_tpot_p90: rp.router_tpot_p90,
-                
+
                 router_ttft_p50: rp.router_ttft_p50,
                 router_itl_p50: rp.router_itl_p50,
                 router_ntpot_p50: rp.router_ntpot_p50,
                 router_tpot_p50: rp.router_tpot_p50,
-                
+
                 router_output_token_rate: rp.router_output_token_rate,
-                
+
                 baseline_ttft_p99: ttft99Result.value,
                 baseline_ttft_p99_interpolated: ttft99Result.interpolated,
                 baseline_itl_p99: itl99Result.value,
@@ -527,7 +527,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                 baseline_ntpot_p99_interpolated: ntpot99Result.interpolated,
                 baseline_tpot_p99: tpot99Result.value,
                 baseline_tpot_p99_interpolated: tpot99Result.interpolated,
-                
+
                 baseline_ttft_p90: ttft90Result.value,
                 baseline_ttft_p90_interpolated: ttft90Result.interpolated,
                 baseline_itl_p90: itl90Result.value,
@@ -536,7 +536,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                 baseline_ntpot_p90_interpolated: ntpot90Result.interpolated,
                 baseline_tpot_p90: tpot90Result.value,
                 baseline_tpot_p90_interpolated: tpot90Result.interpolated,
-                
+
                 baseline_ttft_p50: ttft50Result.value,
                 baseline_ttft_p50_interpolated: ttft50Result.interpolated,
                 baseline_itl_p50: itl50Result.value,
@@ -545,7 +545,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                 baseline_ntpot_p50_interpolated: ntpot50Result.interpolated,
                 baseline_tpot_p50: tpot50Result.value,
                 baseline_tpot_p50_interpolated: tpot50Result.interpolated,
-                
+
                 baseline_output_token_rate: outputRateResult.value
             };
         }).sort((a, b) => a.qps - b.qps);
@@ -582,7 +582,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                 csvContent += `${row.date},${Math.round(row.optimal_ttft_p99 * perfMultiplier)},${Math.round(row.baseline_ttft_p99)}\n`;
             });
         }
-        
+
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
@@ -644,13 +644,13 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
 
     return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center pt-16">
-            
+
             {/* Top Navigation Bar - Fully Fixed for 100% Scroll Independence */}
             <header className="w-full h-16 border-b border-slate-800 flex justify-between items-center px-6 bg-slate-900 fixed top-0 left-0 right-0 z-[9999]">
                 <div className="flex items-center gap-4">
                     {/* Hamburger Menu for Mobile */}
-                    <button 
-                        onClick={onToggleMobileNav} 
+                    <button
+                        onClick={onToggleMobileNav}
                         className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors md:hidden"
                         title="Toggle Navigation"
                     >
@@ -662,7 +662,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                             <ArrowLeft className="h-5 w-5" />
                         </button>
                     )}
-                    
+
                     {/* Compact Prism Logo & Name */}
                     <div className="flex items-center gap-2.5 border-r border-slate-500 pr-4">
                         <img src="https://llm-d.ai/img/llm-d-logotype-and-icon.png" alt="llm-d Logo" className="h-6 object-contain" />
@@ -683,9 +683,9 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                 </div>
 
                 <div className="flex items-center space-x-2 sm:space-x-4">
-                    <a 
-                        href="https://llm-d.ai/docs/community" 
-                        target="_blank" 
+                    <a
+                        href="https://llm-d.ai/docs/community"
+                        target="_blank"
                         rel="noreferrer"
                         className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700"
                         title="Contact us"
@@ -693,25 +693,25 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                         <MessageCircle className="w-4 h-4 sm:mr-2" />
                         <span className="hidden sm:inline">Contact us</span>
                     </a>
-                    <button 
-                        onClick={() => { 
+                    <button
+                        onClick={() => {
                             const params = new URLSearchParams();
                             params.set('share', '1');
                             params.set('view', 'inference-scheduling');
                             params.set('hw', hardware);
                             params.set('scale', latencyScale);
                             const shareUrl = `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-                            
+
                             navigator.clipboard.writeText(shareUrl).then(() => {
-                                setShareToast(true); 
-                                setToastMessage('Link copied to clipboard!'); 
-                                setTimeout(() => setShareToast(false), 2000); 
+                                setShareToast(true);
+                                setToastMessage('Link copied to clipboard!');
+                                setTimeout(() => setShareToast(false), 2000);
                             }).catch(err => {
-                                setShareToast(true); 
-                                setToastMessage('Failed to copy link'); 
-                                setTimeout(() => setShareToast(false), 2000); 
+                                setShareToast(true);
+                                setToastMessage('Failed to copy link');
+                                setTimeout(() => setShareToast(false), 2000);
                             });
-                        }} 
+                        }}
                         className="px-3 py-1.5 sm:px-4 sm:py-2 text-sm font-medium rounded-md text-slate-300 bg-slate-800 hover:bg-slate-700 transition-colors flex items-center border border-slate-700 relative"
                         title="Share view"
                     >
@@ -732,7 +732,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                     {/* Ambient glowing background orb */}
                     <div className="absolute -top-24 -right-24 w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl group-hover:bg-emerald-500/20 transition-all duration-700 pointer-events-none" />
                     <div className="absolute -bottom-24 -left-24 w-64 h-64 bg-cyan-500/10 rounded-full blur-3xl group-hover:bg-cyan-500/20 transition-all duration-700 pointer-events-none" />
-                    
+
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 relative">
                         {/* Col 1: Overview */}
                         <div className="flex flex-col justify-between space-y-3">
@@ -748,7 +748,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                             <div className="text-[10px] font-extrabold text-cyan-400/90 uppercase tracking-widest mb-1">
                                 Active Configurations
                             </div>
-                            
+
                             {/* Baseline */}
                             <div className="border border-emerald-500/20 rounded-lg bg-slate-900/30 p-2 flex items-center justify-between">
                                 <div>
@@ -765,7 +765,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                                     <p className="text-[10px] text-slate-500">Current active scenario</p>
                                 </div>
                                 <div className="flex items-center space-x-2">
-                                    <a href="https://llm-d.ai/docs/guide/Installation/inference-scheduling" target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-300 transition-colors flex items-center space-x-1">
+                                    <a href="https://llm-d.ai/docs/guide/Installation/optimized-baseline" target="_blank" rel="noreferrer" className="text-slate-500 hover:text-slate-300 transition-colors flex items-center space-x-1">
                                         <span className="text-[10px]">Guide</span>
                                         <ExternalLink className="w-3 h-3" />
                                     </a>
@@ -779,7 +779,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                             <div className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest mb-1">
                                 Upcoming
                             </div>
-                            
+
                             {/* Opt 2: Disabled */}
                             <div className="border border-slate-800/50 rounded-lg bg-slate-900/30 p-2 flex items-center justify-between">
                                 <div>
@@ -820,7 +820,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                     {/* CARD 1: Experiment Context (Horizontal 3-Column Layout) */}
                     <div className="lg:col-span-6 border border-slate-800/80 rounded-xl bg-gradient-to-br from-slate-900 to-slate-950 p-4 flex flex-col justify-between shadow-lg relative overflow-hidden">
                         <div className="absolute -top-12 -left-12 w-32 h-32 bg-cyan-500/5 rounded-full blur-2xl pointer-events-none" />
-                        
+
                         <div className="mb-3">
                             <span className="text-[11px] font-extrabold text-emerald-400/90 uppercase tracking-widest block">
                                 Benchmark Scenario
@@ -838,10 +838,10 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                                         <span className="block text-[10px] text-slate-500 font-semibold mb-0.5">Provider / Machine Type</span>
                                         <div className="flex items-center gap-1.5 font-mono font-bold text-white text-xs">
                                             <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
-                                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                                                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                                                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                                                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                                                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                                             </svg>
                                             a3-highgpu-8g
                                         </div>
@@ -902,14 +902,14 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                     </div>
 
                     {/* CARD 2: Primary Outcomes Metric */}
-                    <div 
+                    <div
                         className="lg:col-span-3 border border-slate-800 rounded-xl bg-slate-900 p-4 flex flex-col justify-between shadow-lg relative overflow-hidden group hover:border-emerald-500/30 transition-all"
                     >
                         <div className="absolute -top-10 -right-10 w-32 h-32 bg-emerald-500/5 rounded-full blur-2xl pointer-events-none transition-all group-hover:bg-emerald-500/10" />
                         <div>
                             <div className="text-[11px] font-extrabold text-emerald-400/90 uppercase tracking-widest mb-3 flex justify-between items-center">
                                 Primary Outcomes
-                                <button 
+                                <button
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         document.getElementById('summary-table')?.scrollIntoView({ behavior: 'smooth' });
@@ -968,21 +968,21 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
 
                     {/* CARD 3: Reproducibility Guide */}
                     <div className="lg:col-span-3 border border-slate-800 rounded-xl bg-slate-900 p-4 flex flex-col justify-between shadow-lg relative overflow-hidden">
-                         <div>
-                             <p className="text-[11px] font-extrabold text-emerald-400/90 uppercase tracking-widest mb-2">
-                                 Action
-                             </p>
-                             <h3 className="text-base font-bold text-white mb-1">
-                                 Reproducibility guide
-                             </h3>
-                             <p className="text-sm text-slate-500 leading-relaxed">
-                                 Replicate these intelligent inference scheduling benchmarks directly on your Kubernetes evaluation cluster.
-                             </p>
-                         </div>
+                        <div>
+                            <p className="text-[11px] font-extrabold text-emerald-400/90 uppercase tracking-widest mb-2">
+                                Action
+                            </p>
+                            <h3 className="text-base font-bold text-white mb-1">
+                                Reproducibility guide
+                            </h3>
+                            <p className="text-sm text-slate-500 leading-relaxed">
+                                Replicate these intelligent inference scheduling benchmarks directly on your Kubernetes evaluation cluster.
+                            </p>
+                        </div>
 
-                         <button onClick={() => setIsModalOpen(true)} className="w-full mt-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg shadow transition-all flex justify-center items-center">
+                        <button onClick={() => setIsModalOpen(true)} className="w-full mt-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs rounded-lg shadow transition-all flex justify-center items-center">
                             <Zap className="w-3.5 h-3.5 mr-1.5" /> View instructions
-                         </button>
+                        </button>
                     </div>
                 </div>
 
@@ -990,7 +990,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                     <InferenceSchedulingChart data={additionalChartData} initialXAxis="ntpot" />
                     <InferenceSchedulingChart data={additionalChartData} initialXAxis="ttft" initialLogScale={true} />
                 </div>
-                
+
                 {/* Summary Metrics Table */}
                 <div id="summary-table" className="border border-slate-800 rounded-xl bg-slate-900 shadow-xl p-6 flex flex-col h-[32rem]">
                     <div className="flex justify-between items-center mb-6">
@@ -1000,53 +1000,53 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                         </div>
                         <div className="flex items-center gap-3">
                             <div className="flex gap-2 bg-slate-950 border border-slate-800 p-1 rounded-lg">
-                                <button 
-                                    onClick={() => setTableMetricMode('ttft')} 
+                                <button
+                                    onClick={() => setTableMetricMode('ttft')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${tableMetricMode === 'ttft' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     TTFT
                                 </button>
-                                <button 
-                                    onClick={() => setTableMetricMode('itl')} 
+                                <button
+                                    onClick={() => setTableMetricMode('itl')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${tableMetricMode === 'itl' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     ITL
                                 </button>
-                                <button 
-                                    onClick={() => setTableMetricMode('ntpot')} 
+                                <button
+                                    onClick={() => setTableMetricMode('ntpot')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${tableMetricMode === 'ntpot' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     NTPOT
                                 </button>
-                                <button 
-                                    onClick={() => setTableMetricMode('tpot')} 
+                                <button
+                                    onClick={() => setTableMetricMode('tpot')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${tableMetricMode === 'tpot' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     TPOT
                                 </button>
                             </div>
                             <div className="flex gap-2 bg-slate-950 border border-slate-800 p-1 rounded-lg">
-                                <button 
-                                    onClick={() => setSelectedPercentile('P50')} 
+                                <button
+                                    onClick={() => setSelectedPercentile('P50')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${selectedPercentile === 'P50' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     P50
                                 </button>
-                                <button 
-                                    onClick={() => setSelectedPercentile('P90')} 
+                                <button
+                                    onClick={() => setSelectedPercentile('P90')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${selectedPercentile === 'P90' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     P90
                                 </button>
-                                <button 
-                                    onClick={() => setSelectedPercentile('P99')} 
+                                <button
+                                    onClick={() => setSelectedPercentile('P99')}
                                     className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${selectedPercentile === 'P99' ? 'bg-cyan-500 text-slate-950 shadow-md' : 'text-slate-400 hover:text-white'}`}
                                 >
                                     P99
                                 </button>
                             </div>
-                            <button 
-                                onClick={exportToCSV} 
+                            <button
+                                onClick={exportToCSV}
                                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-md border border-slate-700 transition-colors"
                             >
                                 Export CSV
@@ -1092,7 +1092,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                                             base = selectedPercentile === 'P50' ? row.baseline_tpot_p50 : selectedPercentile === 'P90' ? row.baseline_tpot_p90 : row.baseline_tpot_p99;
                                             opt = selectedPercentile === 'P50' ? row.router_tpot_p50 : selectedPercentile === 'P90' ? row.router_tpot_p90 : row.router_tpot_p99;
                                         }
-                                        
+
                                         const gain = base && opt ? ((base - opt) / base) * 100 : 0;
 
                                         return {
@@ -1201,7 +1201,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                                     <span>ms</span>
                                 </div>
                             </div>
-                            
+
                             <div>
                                 <label className="text-xs font-semibold text-slate-400 block mb-1.5">Duration</label>
                                 <div className="flex items-center space-x-2 text-sm text-slate-300">
@@ -1225,7 +1225,7 @@ const Milestone1Dashboard = ({ onNavigateBack, onNavigate, onToggleMobileNav }) 
                                 </button>
                             </div>
                         </div>
-                        
+
                         <div className="px-5 py-3 bg-slate-900 border-t border-slate-800 flex justify-end items-center">
                             {alertSaved && <span className="text-xs font-medium text-emerald-500 mr-4 animate-in fade-in slide-in-from-right-4">Alert Saved!</span>}
                             <button onClick={() => setIsAlertModalOpen(false)} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-xs transition-colors border border-slate-700 mr-2 font-semibold">Cancel</button>

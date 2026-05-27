@@ -11,47 +11,26 @@
 // limitations under the License.
 
 import React from 'react';
-import { ArrowLeft, Star } from 'lucide-react';
+import { Star, GitCompare } from 'lucide-react';
 import {
-    BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
-    Legend, ResponsiveContainer, Cell,
+    BarChart, Bar, CartesianGrid, Tooltip,
+    ResponsiveContainer, Cell,
 } from 'recharts';
+import { ChartCard, CustomXAxis, CustomYAxis } from './common';
 
-// ---------------------------------------------------------------------------
-// Palette — one colour per run (cycles if > 8 runs)
-// ---------------------------------------------------------------------------
+// Per-run colour palette — cycles if > 8 runs.
 const RUN_COLORS = [
-    '#8b5cf6', '#3b82f6', '#10b981', '#f59e0b',
-    '#ef4444', '#06b6d4', '#ec4899', '#84cc16',
+    '#06b6d4', '#8b5cf6', '#10b981', '#f59e0b',
+    '#ef4444', '#3b82f6', '#ec4899', '#84cc16',
 ];
 const runColor = (idx) => RUN_COLORS[idx % RUN_COLORS.length];
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 const fmt = (val, dec = 1) =>
     val === null || val === undefined ? '—' : Number(val).toFixed(dec);
 
 const pctDiff = (baseline, value) => {
-    if (!baseline || baseline === 0 || value === null) return null;
+    if (!baseline || baseline === 0 || value === null || value === undefined) return null;
     return ((value - baseline) / Math.abs(baseline)) * 100;
-};
-
-// ---------------------------------------------------------------------------
-// Comparison table (same logic as the panel, full width)
-// ---------------------------------------------------------------------------
-const DiffBadge = ({ diff, higherIsBetter }) => {
-    if (diff === null) return null;
-    const isImprovement = higherIsBetter ? diff > 0 : diff < 0;
-    const isNeutral = Math.abs(diff) < 0.1;
-    const color = isNeutral
-        ? 'text-slate-400'
-        : isImprovement ? 'text-green-500' : 'text-red-400';
-    return (
-        <span className={`text-[11px] font-medium ml-1 ${color}`}>
-            ({diff > 0 ? '+' : ''}{diff.toFixed(1)}%)
-        </span>
-    );
 };
 
 const stageLabel = (stage) => {
@@ -61,57 +40,91 @@ const stageLabel = (stage) => {
     return `${idx}${qps}`;
 };
 
-// ---------------------------------------------------------------------------
-// Bar chart section
-// ---------------------------------------------------------------------------
-const MetricBarChart = ({ title, unit, data, higherIsBetter, decimals = 1 }) => {
-    if (!data || data.every(d => d.value === null)) return null;
+const DiffBadge = ({ diff, higherIsBetter }) => {
+    if (diff === null || higherIsBetter === null) return null;
+    const isImprovement = higherIsBetter ? diff > 0 : diff < 0;
+    const isNeutral = Math.abs(diff) < 0.1;
+    const color = isNeutral
+        ? 'text-slate-400'
+        : isImprovement ? 'text-emerald-500 dark:text-emerald-400' : 'text-red-500 dark:text-red-400';
     return (
-        <div className="bg-slate-800/50 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-                <h4 className="text-xs font-semibold text-slate-300">{title}</h4>
-                <span className="text-[10px] text-slate-500">{unit} · {higherIsBetter ? '↑ higher is better' : '↓ lower is better'}</span>
+        <span className={`text-[11px] font-medium ml-1 ${color}`}>
+            ({diff > 0 ? '+' : ''}{diff.toFixed(1)}%)
+        </span>
+    );
+};
+
+// Lightweight tooltip for bar charts — mirrors the surface style of
+// CustomChartTooltip without inheriting its scatter/data-point assumptions.
+const BarTooltip = ({ active, payload, unit, decimals }) => {
+    if (!active || !payload || !payload.length) return null;
+    const entry = payload[0];
+    const data = entry.payload;
+    return (
+        <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-2xl px-3 py-2 backdrop-blur-md text-slate-900 dark:text-slate-100 text-xs">
+            <div className="flex items-center gap-2 mb-1">
+                <span className="w-2.5 h-2.5 rounded-full" style={{ background: data.color }} />
+                <span className="font-semibold">{data.label}</span>
+                {data.isBaseline && <span className="text-violet-500 dark:text-violet-400 text-[10px]">★ baseline</span>}
             </div>
-            <ResponsiveContainer width="100%" height={160}>
-                <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" vertical={false} />
-                    <XAxis
-                        dataKey="label"
-                        tick={{ fontSize: 10, fill: '#94a3b8' }}
-                        axisLine={false}
-                        tickLine={false}
-                    />
-                    <YAxis
-                        tick={{ fontSize: 10, fill: '#94a3b8' }}
-                        axisLine={false}
-                        tickLine={false}
-                        width={40}
-                    />
-                    <Tooltip
-                        contentStyle={{ background: '#1e293b', border: '1px solid #334155', borderRadius: 6, fontSize: 11 }}
-                        formatter={(val) => [fmt(val, decimals) + ' ' + unit]}
-                    />
-                    <Bar dataKey="value" radius={[3, 3, 0, 0]}>
-                        {data.map((entry, i) => (
-                            <Cell key={i} fill={entry.color} />
-                        ))}
-                    </Bar>
-                </BarChart>
-            </ResponsiveContainer>
+            <div className="font-mono text-sm">
+                {fmt(entry.value, decimals)}
+                {unit && <span className="text-slate-500 dark:text-slate-400 ml-1 text-[11px]">{unit}</span>}
+            </div>
+            {data.stageText && (
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{data.stageText}</div>
+            )}
         </div>
     );
 };
 
-// ---------------------------------------------------------------------------
-// Main dashboard
-// ---------------------------------------------------------------------------
+const MetricBarChart = ({ title, unit, data, higherIsBetter, decimals = 1 }) => {
+    if (!data || data.every(d => d.value === null || d.value === undefined)) return null;
+
+    const directionLabel = higherIsBetter === null
+        ? 'context metric'
+        : higherIsBetter ? '↑ higher is better' : '↓ lower is better';
+
+    const titleNode = (
+        <span className="flex items-center justify-between w-full">
+            <span>{title}</span>
+            <span className="text-[10px] font-normal text-slate-400 dark:text-slate-500">
+                {unit && <span className="mr-2">{unit}</span>}
+                {directionLabel}
+            </span>
+        </span>
+    );
+
+    return (
+        <ChartCard title={titleNode}>
+            <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={data} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} vertical={false} />
+                        <CustomXAxis dataKey="label" type="category" interval={0} height={32} label={null} />
+                        <CustomYAxis label={null} width={48} />
+                        <Tooltip
+                            cursor={{ fill: 'rgba(148, 163, 184, 0.1)' }}
+                            content={<BarTooltip unit={unit} decimals={decimals} />}
+                        />
+                        <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={56}>
+                            {data.map((entry, i) => (
+                                <Cell key={i} fill={entry.color} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+        </ChartCard>
+    );
+};
+
 export default function BenchmarkComparisonDashboard({
     runs,
     customLabels,
     baselineRunId,
     selectedStages,
     setBaselineRunId,
-    onNavigateBack,
 }) {
     const getLabel = (run) => customLabels?.[run.runId] || run.runLabel;
 
@@ -125,28 +138,17 @@ export default function BenchmarkComparisonDashboard({
         });
     }, [runs, baselineRunId, selectedStages]);
 
-    if (runs.length === 0) {
-        return (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 gap-3 p-12">
-                <p className="text-sm">No benchmark runs uploaded yet.</p>
-                <p className="text-xs">Upload <code>benchmark_report_v0.2,_*.yaml</code> files via the Connections panel, then return here.</p>
-                <button onClick={onNavigateBack} className="mt-4 text-xs underline text-violet-400 hover:text-violet-300">
-                    ← Back to Benchmark Browser
-                </button>
-            </div>
-        );
-    }
+    if (runs.length === 0) return null;
 
     const baselineCol = columns.find(c => c.isBaseline);
-    const bp = baselineCol?.stage?.performance;
-    const bo = baselineCol?.stage?.observability;
 
-    // Build bar chart data: one entry per run, one chart per metric
     const makeBarData = (accessor) =>
         columns.map(col => ({
             label: getLabel(col.run),
             value: accessor(col.stage),
             color: col.color,
+            isBaseline: col.isBaseline,
+            stageText: stageLabel(col.stage),
         }));
 
     const perfMetrics = [
@@ -166,162 +168,197 @@ export default function BenchmarkComparisonDashboard({
         { title: 'Pod Startup Mean',      unit: 's',  dec: 1, higher: false, fn: s => s?.observability?.podStartupMeanS },
     ];
 
-    const hasObs = columns.some(c => c.stage?.observability !== null);
+    const hasObs = columns.some(c => c.stage?.observability !== null && c.stage?.observability !== undefined);
 
     return (
-        <div className="flex-1 flex flex-col min-h-screen bg-slate-950 text-white">
-            {/* Header */}
-            <div className="flex items-center gap-4 px-6 py-4 border-b border-slate-800 bg-slate-900/50">
-                <button
-                    onClick={onNavigateBack}
-                    className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors"
-                >
-                    <ArrowLeft size={14} /> Back
-                </button>
-                <h1 className="text-sm font-semibold text-slate-200">Benchmark Comparison</h1>
-                <span className="text-[11px] text-slate-500">{runs.length} runs · ★ = baseline</span>
+        <section className="space-y-4">
+            {/* Section header */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-cyan-600/15 text-cyan-400 dark:text-cyan-300">
+                        <GitCompare className="w-4 h-4" />
+                    </div>
+                    <div>
+                        <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                            Local Benchmark Comparison
+                        </h2>
+                        <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                            {runs.length} runs uploaded · ★ marks the baseline · click a run pill to change baseline
+                        </p>
+                    </div>
+                </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-8">
+            {/* Run legend / baseline picker */}
+            <div className="flex flex-wrap gap-2">
+                {columns.map((col) => (
+                    <button
+                        key={col.run.runId}
+                        onClick={() => setBaselineRunId(col.run.runId)}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+                            col.isBaseline
+                                ? 'border-cyan-500/60 bg-cyan-600/15 text-cyan-700 dark:text-cyan-300'
+                                : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800/60 text-slate-700 dark:text-slate-300 hover:border-cyan-500/40 hover:text-cyan-600 dark:hover:text-cyan-300'
+                        }`}
+                        title={col.isBaseline ? 'Current baseline' : 'Click to set as baseline'}
+                    >
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col.color }} />
+                        {col.isBaseline && <Star size={10} fill="currentColor" />}
+                        <span className="truncate max-w-[180px]">{getLabel(col.run)}</span>
+                        <span className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
+                            {stageLabel(col.stage)}
+                        </span>
+                    </button>
+                ))}
+            </div>
 
-                {/* Run legend */}
-                <div className="flex flex-wrap gap-3">
-                    {columns.map((col, idx) => (
-                        <button
-                            key={col.run.runId}
-                            onClick={() => setBaselineRunId(col.run.runId)}
-                            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${col.isBaseline ? 'border-violet-400 bg-violet-900/30 text-violet-300' : 'border-slate-700 bg-slate-800 text-slate-300 hover:border-slate-500'}`}
-                        >
-                            <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: col.color }} />
-                            {col.isBaseline && <Star size={10} fill="currentColor" className="text-violet-400" />}
-                            <span className="truncate max-w-[180px]">{getLabel(col.run)}</span>
-                            <span className="text-[10px] text-slate-500">{stageLabel(col.stage)}</span>
-                        </button>
+            {/* Performance bar charts */}
+            <div>
+                <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                    Request Performance
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {perfMetrics.map(m => (
+                        <MetricBarChart
+                            key={m.title}
+                            title={m.title}
+                            unit={m.unit}
+                            data={makeBarData(m.fn)}
+                            higherIsBetter={m.higher}
+                            decimals={m.dec}
+                        />
                     ))}
                 </div>
-
-                {/* Performance bar charts */}
-                <section>
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Request Performance</h2>
-                    <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                        {perfMetrics.map(m => (
-                            <MetricBarChart
-                                key={m.title}
-                                title={m.title}
-                                unit={m.unit}
-                                data={makeBarData(m.fn)}
-                                higherIsBetter={m.higher}
-                                decimals={m.dec}
-                            />
-                        ))}
-                    </div>
-                </section>
-
-                {/* Observability bar charts */}
-                {hasObs && (
-                    <section>
-                        <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">Observability</h2>
-                        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                            {obsMetrics.map(m => {
-                                const anyData = columns.some(c => m.fn(c.stage) !== null);
-                                if (!anyData) return null;
-                                return (
-                                    <MetricBarChart
-                                        key={m.title}
-                                        title={m.title}
-                                        unit={m.unit}
-                                        data={makeBarData(m.fn)}
-                                        higherIsBetter={m.higher}
-                                        decimals={m.dec}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </section>
-                )}
-
-                {/* Comparison table */}
-                <section>
-                    <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
-                        Detailed Comparison <span className="font-normal text-slate-600 ml-2">green = improvement · red = regression vs baseline</span>
-                    </h2>
-                    <div className="overflow-x-auto rounded-lg border border-slate-800">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className="border-b border-slate-800 bg-slate-900">
-                                    <th className="px-4 py-3 text-[11px] font-semibold text-slate-400 uppercase w-48">Metric</th>
-                                    {columns.map(col => (
-                                        <th key={col.run.runId} className="px-4 py-3 text-center">
-                                            <div className="flex items-center justify-center gap-1.5">
-                                                <span className="w-2 h-2 rounded-full" style={{ background: col.color }} />
-                                                <span className={`text-[11px] font-semibold truncate max-w-[140px] ${col.isBaseline ? 'text-violet-400' : 'text-slate-300'}`}>
-                                                    {col.isBaseline && '★ '}{getLabel(col.run)}
-                                                </span>
-                                            </div>
-                                            <div className="text-[10px] text-slate-500 mt-0.5">{stageLabel(col.stage)}</div>
-                                        </th>
-                                    ))}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {/* Performance section */}
-                                <tr>
-                                    <td colSpan={columns.length + 1} className="px-4 pt-4 pb-1">
-                                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Request Performance</span>
-                                    </td>
-                                </tr>
-                                {perfMetrics.map(row => (
-                                    <tr key={row.title} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                                        <td className="px-4 py-2 text-[12px] text-slate-400">{row.title}</td>
-                                        {columns.map(col => {
-                                            const val = row.fn(col.stage);
-                                            const diff = col.isBaseline ? null : pctDiff(row.fn(baselineCol?.stage), val);
-                                            return (
-                                                <td key={col.run.runId} className="px-4 py-2 text-center">
-                                                    <span className="text-[12px] font-mono text-slate-200">{fmt(val, row.dec)}</span>
-                                                    {row.unit && <span className="text-[10px] text-slate-500 ml-0.5">{row.unit}</span>}
-                                                    {diff !== null && <DiffBadge diff={diff} higherIsBetter={row.higher} />}
-                                                </td>
-                                            );
-                                        })}
-                                    </tr>
-                                ))}
-
-                                {/* Observability section */}
-                                {hasObs && (
-                                    <>
-                                        <tr>
-                                            <td colSpan={columns.length + 1} className="px-4 pt-4 pb-1">
-                                                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Observability</span>
-                                            </td>
-                                        </tr>
-                                        {obsMetrics.map(row => {
-                                            const anyData = columns.some(c => row.fn(c.stage) !== null);
-                                            if (!anyData) return null;
-                                            return (
-                                                <tr key={row.title} className="border-b border-slate-800/50 hover:bg-slate-800/20">
-                                                    <td className="px-4 py-2 text-[12px] text-slate-400">{row.title}</td>
-                                                    {columns.map(col => {
-                                                        const val = row.fn(col.stage);
-                                                        const diff = col.isBaseline ? null : pctDiff(row.fn(baselineCol?.stage), val);
-                                                        return (
-                                                            <td key={col.run.runId} className="px-4 py-2 text-center">
-                                                                <span className="text-[12px] font-mono text-slate-200">{fmt(val, row.dec)}</span>
-                                                                {row.unit && <span className="text-[10px] text-slate-500 ml-0.5">{row.unit}</span>}
-                                                                {diff !== null && <DiffBadge diff={diff} higherIsBetter={row.higher} />}
-                                                            </td>
-                                                        );
-                                                    })}
-                                                </tr>
-                                            );
-                                        })}
-                                    </>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
             </div>
-        </div>
+
+            {/* Observability bar charts */}
+            {hasObs && (
+                <div>
+                    <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+                        Observability
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {obsMetrics.map(m => {
+                            const anyData = columns.some(c => {
+                                const v = m.fn(c.stage);
+                                return v !== null && v !== undefined;
+                            });
+                            if (!anyData) return null;
+                            return (
+                                <MetricBarChart
+                                    key={m.title}
+                                    title={m.title}
+                                    unit={m.unit}
+                                    data={makeBarData(m.fn)}
+                                    higherIsBetter={m.higher}
+                                    decimals={m.dec}
+                                />
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+
+            {/* Detailed comparison table */}
+            <div className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-lg overflow-hidden transition-colors">
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex items-baseline justify-between flex-wrap gap-2">
+                    <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                        Detailed Comparison
+                    </h3>
+                    <span className="text-[11px] text-slate-400 dark:text-slate-500">
+                        <span className="text-emerald-500 dark:text-emerald-400">green</span> = improvement ·{' '}
+                        <span className="text-red-500 dark:text-red-400">red</span> = regression vs baseline
+                    </span>
+                </div>
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/40">
+                                <th className="px-4 py-3 text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase w-48">
+                                    Metric
+                                </th>
+                                {columns.map(col => (
+                                    <th key={col.run.runId} className="px-4 py-3 text-center">
+                                        <div className="flex items-center justify-center gap-1.5">
+                                            <span className="w-2 h-2 rounded-full" style={{ background: col.color }} />
+                                            <span className={`text-[11px] font-semibold truncate max-w-[140px] ${
+                                                col.isBaseline
+                                                    ? 'text-cyan-600 dark:text-cyan-300'
+                                                    : 'text-slate-700 dark:text-slate-300'
+                                            }`}>
+                                                {col.isBaseline && '★ '}{getLabel(col.run)}
+                                            </span>
+                                        </div>
+                                        <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5 font-mono">
+                                            {stageLabel(col.stage)}
+                                        </div>
+                                    </th>
+                                ))}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td colSpan={columns.length + 1} className="px-4 pt-4 pb-1">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                        Request Performance
+                                    </span>
+                                </td>
+                            </tr>
+                            {perfMetrics.map(row => (
+                                <tr key={row.title} className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/20">
+                                    <td className="px-4 py-2 text-[12px] text-slate-600 dark:text-slate-300">{row.title}</td>
+                                    {columns.map(col => {
+                                        const val = row.fn(col.stage);
+                                        const diff = col.isBaseline ? null : pctDiff(row.fn(baselineCol?.stage), val);
+                                        return (
+                                            <td key={col.run.runId} className="px-4 py-2 text-center">
+                                                <span className="text-[12px] font-mono text-slate-800 dark:text-slate-100">{fmt(val, row.dec)}</span>
+                                                {row.unit && <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">{row.unit}</span>}
+                                                {diff !== null && <DiffBadge diff={diff} higherIsBetter={row.higher} />}
+                                            </td>
+                                        );
+                                    })}
+                                </tr>
+                            ))}
+
+                            {hasObs && (
+                                <>
+                                    <tr>
+                                        <td colSpan={columns.length + 1} className="px-4 pt-4 pb-1">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                                                Observability
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    {obsMetrics.map(row => {
+                                        const anyData = columns.some(c => {
+                                            const v = row.fn(c.stage);
+                                            return v !== null && v !== undefined;
+                                        });
+                                        if (!anyData) return null;
+                                        return (
+                                            <tr key={row.title} className="border-b border-slate-100 dark:border-slate-700/50 hover:bg-slate-50 dark:hover:bg-slate-700/20">
+                                                <td className="px-4 py-2 text-[12px] text-slate-600 dark:text-slate-300">{row.title}</td>
+                                                {columns.map(col => {
+                                                    const val = row.fn(col.stage);
+                                                    const diff = col.isBaseline ? null : pctDiff(row.fn(baselineCol?.stage), val);
+                                                    return (
+                                                        <td key={col.run.runId} className="px-4 py-2 text-center">
+                                                            <span className="text-[12px] font-mono text-slate-800 dark:text-slate-100">{fmt(val, row.dec)}</span>
+                                                            {row.unit && <span className="text-[10px] text-slate-400 dark:text-slate-500 ml-0.5">{row.unit}</span>}
+                                                            {diff !== null && <DiffBadge diff={diff} higherIsBetter={row.higher} />}
+                                                        </td>
+                                                    );
+                                                })}
+                                            </tr>
+                                        );
+                                    })}
+                                </>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
     );
 }

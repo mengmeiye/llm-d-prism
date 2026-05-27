@@ -30,7 +30,6 @@ export const BenchmarkReportPanel = ({
     customLabels, setCustomLabels,
     baselineRunId, setBaselineRunId,
     selectedStages, setSelectedStages,
-    onOpenComparison,
 }) => {
     // runId currently being renamed, or null
     const [editingRunId, setEditingRunId] = React.useState(null);
@@ -248,21 +247,16 @@ export const BenchmarkReportPanel = ({
                     </div>
                 )}
 
-                {/* Hint when only one run uploaded */}
+                {/* Status hint — comparison renders inline in the Benchmark Browser */}
                 {runs.length === 1 && (
                     <p className="text-[10px] text-slate-400 text-center py-1">
                         Upload at least one more run to compare.
                     </p>
                 )}
-
-                {/* Open full comparison view */}
                 {runs.length >= 2 && (
-                    <button
-                        onClick={onOpenComparison}
-                        className="w-full py-2 text-xs font-semibold rounded bg-violet-600 hover:bg-violet-500 text-white transition-colors flex items-center justify-center gap-2"
-                    >
-                        Open Comparison View
-                    </button>
+                    <p className="text-[10px] text-slate-400 text-center py-1">
+                        Comparison shown inline below the chart in Benchmark Browser.
+                    </p>
                 )}
             </div>
         </div>

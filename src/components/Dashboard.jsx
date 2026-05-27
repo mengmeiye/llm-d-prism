@@ -208,7 +208,6 @@ const Dashboard = ({ onNavigateBack }) => {
         brv02Runs, brv02CustomLabels, setBrv02CustomLabels,
         brv02BaselineRunId, setBrv02BaselineRunId,
         brv02SelectedStages, setBrv02SelectedStages,
-        showBenchmarkComparison, setShowBenchmarkComparison,
     } = dashboardData;
 
     const data = useMemo(() => {
@@ -1830,20 +1829,8 @@ const Dashboard = ({ onNavigateBack }) => {
                 // Actually, let's just use an inline function for the button below.
             })()}
 
-            {/* Benchmark Comparison full-width view — replaces chart/table when active */}
-            {showBenchmarkComparison && (
-                <BenchmarkComparisonDashboard
-                    runs={brv02Runs}
-                    customLabels={brv02CustomLabels}
-                    baselineRunId={brv02BaselineRunId}
-                    selectedStages={brv02SelectedStages}
-                    setBaselineRunId={setBrv02BaselineRunId}
-                    onNavigateBack={() => setShowBenchmarkComparison(false)}
-                />
-            )}
-
-            {/* Configuration Area — hidden when comparison view is active */}
-            <div className={`space-y-4 mb-4 ${showBenchmarkComparison ? 'hidden' : ''}`}>
+            {/* Configuration Area */}
+            <div className="space-y-4 mb-4">
 
                 {/* Data Connections Section - Moved to Slide-over */}
 
@@ -1879,6 +1866,33 @@ const Dashboard = ({ onNavigateBack }) => {
                         isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks
                     }}
                 />
+
+                {/* Local Benchmark Comparison — auto-shown when ≥ 2 brv02 runs are uploaded.
+                    With 1 run uploaded, show a slim hint pointing to the Connections panel. */}
+                {brv02Runs.length === 1 && (
+                    <div className="bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between gap-3">
+                        <span>
+                            <span className="font-medium text-slate-700 dark:text-slate-300">Local benchmark comparison:</span>{' '}
+                            1 run uploaded. Add at least one more <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300">benchmark_report_v0.2,_*.yaml</code> file in the Connections panel to compare.
+                        </span>
+                        <button
+                            onClick={() => setShowDataPanel(true)}
+                            className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium shrink-0"
+                        >
+                            Open Connections →
+                        </button>
+                    </div>
+                )}
+
+                {brv02Runs.length >= 2 && (
+                    <BenchmarkComparisonDashboard
+                        runs={brv02Runs}
+                        customLabels={brv02CustomLabels}
+                        baselineRunId={brv02BaselineRunId}
+                        selectedStages={brv02SelectedStages}
+                        setBaselineRunId={setBrv02BaselineRunId}
+                    />
+                )}
 
 
 
@@ -2022,7 +2036,6 @@ const Dashboard = ({ onNavigateBack }) => {
                     awsBucketConfigs={awsBucketConfigs}
                     handleAddAWSBucket={handleAddAWSBucket}
                     removeAWSBucket={removeAWSBucket}
-                    onOpenBenchmarkComparison={() => { setShowBenchmarkComparison(true); setShowDataPanel(false); }}
                 />
         </div>
 

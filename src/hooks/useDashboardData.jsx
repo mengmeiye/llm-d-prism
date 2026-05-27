@@ -42,7 +42,6 @@ export const useDashboardData = (initialState, dashboardState) => {
     const [brv02CustomLabels, setBrv02CustomLabels] = useState({});
     const [brv02BaselineRunId, setBrv02BaselineRunId] = useState(null);
     const [brv02SelectedStages, setBrv02SelectedStages] = useState({});
-    const [showBenchmarkComparison, setShowBenchmarkComparison] = useState(false);
     const [driveLoading, setDriveLoading] = useState(false);
     const [driveStatus, setDriveStatus] = useState("");
     const [driveProgress, setDriveProgress] = useState(0);
@@ -1835,7 +1834,6 @@ export const useDashboardData = (initialState, dashboardState) => {
         brv02Runs, brv02Error, setBrv02Error, handleBrv02Upload, removeBrv02Run,
         brv02CustomLabels, setBrv02CustomLabels,
         brv02BaselineRunId, setBrv02BaselineRunId,
-        brv02SelectedStages, setBrv02SelectedStages,
-        showBenchmarkComparison, setShowBenchmarkComparison
+        brv02SelectedStages, setBrv02SelectedStages
     };
 };

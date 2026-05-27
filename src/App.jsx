@@ -26,8 +26,8 @@ function App() {
   const mainRef = useRef(null);
   const [currentView, setCurrentView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    // 'benchmark-comparison' navigates to 'benchmark-browser'; comparison view
-    // is toggled internally via showBenchmarkComparison state in Dashboard.
+    // Legacy 'benchmark-comparison' deep links land on the Benchmark Browser,
+    // where the comparison renders inline once brv02 runs are uploaded.
     const view = params.get('view') || 'home';
     return view === 'benchmark-comparison' ? 'benchmark-browser' : view;
   }); // 'home' | 'benchmark-browser' | 'intelligent-routing' | 'schema-explorer' | 'workload-catalog' | 'guided-analysis'

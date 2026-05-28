@@ -11,27 +11,19 @@
 // limitations under the License.
 
 import React from "react";
-import { FileJson, X, Star, AlertCircle, Pencil } from "lucide-react";
+import { FileJson, X, AlertCircle, Pencil } from "lucide-react";
 
-// ---------------------------------------------------------------------------
-// Stage label helper
-// ---------------------------------------------------------------------------
-const stageLabel = (stage) => {
+const stageSummary = (stage) => {
+    if (!stage) return '—';
     const idx = stage.stageIndex !== null ? `Stage ${stage.stageIndex}` : 'Stage —';
-    const qps = stage.scenario.rateQps !== null ? ` · ${stage.scenario.rateQps} QPS` : '';
+    const qps = stage.scenario?.rateQps != null ? ` · ${stage.scenario.rateQps} QPS` : '';
     return `${idx}${qps}`;
 };
 
-// ---------------------------------------------------------------------------
-// Main panel
-// ---------------------------------------------------------------------------
 export const BenchmarkReportPanel = ({
     runs, error, setError, onUpload, onRemoveRun,
     customLabels, setCustomLabels,
-    baselineRunId, setBaselineRunId,
-    selectedStages, setSelectedStages,
 }) => {
-    // runId currently being renamed, or null
     const [editingRunId, setEditingRunId] = React.useState(null);
     const [editingValue, setEditingValue] = React.useState('');
     const [collisionEdit, setCollisionEdit] = React.useState(false);
@@ -63,14 +55,6 @@ export const BenchmarkReportPanel = ({
     // identify newly added runs.
     const prevRunIdsRef = React.useRef(new Set());
 
-    // Auto-select first run as baseline when runs change.
-    React.useEffect(() => {
-        if (runs.length > 0 && (!baselineRunId || !runs.find(r => r.runId === baselineRunId))) {
-            setBaselineRunId(runs[0].runId);
-        }
-        if (runs.length === 0) setBaselineRunId(null);
-    }, [runs, baselineRunId, setBaselineRunId]);
-
     // When new runs are added, check for label collisions and auto-trigger
     // rename mode on any new run whose label matches an existing one.
     React.useEffect(() => {
@@ -94,10 +78,6 @@ export const BenchmarkReportPanel = ({
 
         prevRunIdsRef.current = new Set(runs.map(r => r.runId));
     }, [runs, editingRunId]);
-
-    const setStageForRun = (runId, idx) => {
-        setSelectedStages(prev => ({ ...prev, [runId]: idx }));
-    };
 
     return (
         <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800/50 p-4 animate-in slide-in-from-top-2 duration-200">
@@ -123,9 +103,9 @@ export const BenchmarkReportPanel = ({
                             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             onChange={onUpload}
                         />
-                        <FileJson size={20} className="text-slate-400 mb-1.5 group-hover:text-violet-500 transition-colors" />
+                        <FileJson size={20} className="text-slate-400 mb-1.5 group-hover:text-cyan-500 transition-colors" />
                         <span className="text-xs font-medium text-slate-700 dark:text-slate-300">
-                            Drag & drop files or <span className="text-violet-500">browse</span>
+                            Drag & drop files or <span className="text-cyan-500">browse</span>
                         </span>
                         <span className="text-[10px] text-slate-400 mt-1">
                             benchmark_report_v0.2,_*.yaml — new files are added to existing
@@ -140,12 +120,10 @@ export const BenchmarkReportPanel = ({
                             Uploaded Runs ({runs.length})
                         </label>
                         {runs.map(run => {
-                            const isBaseline = run.runId === baselineRunId;
-                            const stageIdx = selectedStages[run.runId] ?? 0;
                             return (
                                 <div
                                     key={run.runId}
-                                    className={`rounded-md border px-3 py-2 text-xs flex flex-col gap-1.5 ${isBaseline ? 'border-violet-400 dark:border-violet-600 bg-violet-50 dark:bg-violet-900/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'}`}
+                                    className="rounded-md border px-3 py-2 text-xs flex flex-col gap-1.5 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
                                 >
                                     <div className="flex items-center justify-between gap-2">
                                         {/* Inline label — click to rename */}
@@ -160,7 +138,7 @@ export const BenchmarkReportPanel = ({
                                                         if (e.key === 'Enter') commitEdit();
                                                         if (e.key === 'Escape') cancelEdit();
                                                     }}
-                                                    className="w-full text-xs font-medium bg-white dark:bg-slate-800 border border-violet-400 rounded px-1.5 py-0.5 text-slate-800 dark:text-slate-200 focus:outline-none"
+                                                    className="w-full text-xs font-medium bg-white dark:bg-slate-800 border border-cyan-400 rounded px-1.5 py-0.5 text-slate-800 dark:text-slate-200 focus:outline-none"
                                                 />
                                                 {collisionEdit && (
                                                     <span className="text-[9px] text-amber-500">
@@ -177,19 +155,10 @@ export const BenchmarkReportPanel = ({
                                                 <span className="font-medium text-slate-800 dark:text-slate-200 truncate text-xs">
                                                     {getLabel(run)}
                                                 </span>
-                                                <Pencil size={10} className="shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-violet-400 transition-colors" />
+                                                <Pencil size={10} className="shrink-0 text-slate-300 dark:text-slate-600 group-hover:text-cyan-400 transition-colors" />
                                             </button>
                                         )}
                                         <div className="flex items-center gap-1 shrink-0">
-                                            {/* Baseline toggle */}
-                                            <button
-                                                onClick={() => setBaselineRunId(run.runId)}
-                                                title={isBaseline ? 'Baseline' : 'Set as baseline'}
-                                                className={`p-1 rounded transition-colors ${isBaseline ? 'text-violet-500' : 'text-slate-300 hover:text-violet-400 dark:text-slate-600 dark:hover:text-violet-400'}`}
-                                            >
-                                                <Star size={12} fill={isBaseline ? 'currentColor' : 'none'} />
-                                            </button>
-                                            {/* Remove */}
                                             <button
                                                 onClick={() => {
                                                     onRemoveRun(run.runId);
@@ -207,55 +176,44 @@ export const BenchmarkReportPanel = ({
                                         </div>
                                     </div>
 
-                                    {/* Stage selector */}
-                                    {run.stages.length === 1 ? (
-                                        <span className="text-[10px] text-slate-400">{stageLabel(run.stages[0])}</span>
-                                    ) : (
-                                        <select
-                                            value={stageIdx}
-                                            onChange={e => setStageForRun(run.runId, Number(e.target.value))}
-                                            className="text-[10px] bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded px-1.5 py-0.5 text-slate-600 dark:text-slate-300 focus:outline-none focus:border-violet-400 w-full"
-                                        >
-                                            {run.stages.map((s, i) => (
-                                                <option key={i} value={i}>{stageLabel(s)}</option>
-                                            ))}
-                                        </select>
-                                    )}
+                                    {/* Stage summary — read-only since each stage now renders as its own scatter point */}
+                                    <div className="text-[10px] text-slate-400">
+                                        {run.stages.length === 1
+                                            ? stageSummary(run.stages[0])
+                                            : `${run.stages.length} stages plotted on chart`}
+                                    </div>
 
                                     {/* Scenario summary */}
-                                    <div className="text-[9px] text-slate-400 flex flex-wrap gap-x-2">
-                                        <span>{run.stages[stageIdx]?.scenario.model || '—'}</span>
-                                        <span>{run.stages[stageIdx]?.scenario.hardware || '—'}</span>
-                                        {run.stages[stageIdx]?.scenario.acceleratorCount != null && (
-                                            <span>×{run.stages[stageIdx].scenario.acceleratorCount} GPUs</span>
-                                        )}
-                                        {run.stages[stageIdx]?.scenario.tp != null && (
-                                            <span>TP{run.stages[stageIdx].scenario.tp}</span>
-                                        )}
-                                        {run.stages[stageIdx]?.timestamp && (
-                                            <span className="ml-auto font-mono text-slate-300 dark:text-slate-600">
-                                                {new Date(run.stages[stageIdx].timestamp).toLocaleString(undefined, {
-                                                    month: 'short', day: 'numeric',
-                                                    hour: '2-digit', minute: '2-digit',
-                                                })}
-                                            </span>
-                                        )}
-                                    </div>
+                                    {run.stages[0] && (
+                                        <div className="text-[9px] text-slate-400 flex flex-wrap gap-x-2">
+                                            <span>{run.stages[0].scenario.model || '—'}</span>
+                                            <span>{run.stages[0].scenario.hardware || '—'}</span>
+                                            {run.stages[0].scenario.acceleratorCount != null && (
+                                                <span>×{run.stages[0].scenario.acceleratorCount} GPUs</span>
+                                            )}
+                                            {run.stages[0].scenario.tp != null && (
+                                                <span>TP{run.stages[0].scenario.tp}</span>
+                                            )}
+                                            {run.stages[0].timestamp && (
+                                                <span className="ml-auto font-mono text-slate-300 dark:text-slate-600">
+                                                    {new Date(run.stages[0].timestamp).toLocaleString(undefined, {
+                                                        month: 'short', day: 'numeric',
+                                                        hour: '2-digit', minute: '2-digit',
+                                                    })}
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })}
                     </div>
                 )}
 
-                {/* Status hint — comparison renders inline in the Benchmark Browser */}
-                {runs.length === 1 && (
+                {/* Hint pointing at the chart */}
+                {runs.length > 0 && (
                     <p className="text-[10px] text-slate-400 text-center py-1">
-                        Upload at least one more run to compare.
-                    </p>
-                )}
-                {runs.length >= 2 && (
-                    <p className="text-[10px] text-slate-400 text-center py-1">
-                        Comparison shown inline below the chart in Benchmark Browser.
+                        Open the Benchmark Browser and pick a baseline (★) on a row to compare runs.
                     </p>
                 )}
             </div>

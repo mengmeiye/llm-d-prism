@@ -33,11 +33,11 @@ import { CustomLabel, MultiSelectDropdown, Row, CustomChartTooltip, CustomXAxis,
 import { FilterPanel } from './Dashboard/FilterPanel';
 import { UnifiedDataTable } from './Dashboard/UnifiedDataTable';
 import { ThroughputCostChart } from './Dashboard/ThroughputCostChart';
+import { RunComparisonChart } from './Dashboard/RunComparisonChart';
 import DataInspector from './DataInspector';
 import { useDashboardState } from '../hooks/useDashboardState';
 import { useDashboardData } from '../hooks/useDashboardData';
 import { INTEGRATIONS, getBucket, getRatioType, getEffectiveTp, sortBuckets, findParetoPoint, getNodesAndType, getBenchmarkKey } from '../utils/dashboardHelpers';
-import BenchmarkComparisonDashboard from './BenchmarkComparisonDashboard';
 const USE_CASE_META = {
     "Advanced Customer Support": "(~9k/256)",
     "Chatbot (ShareGPT)": "(~128/128)",
@@ -160,6 +160,7 @@ const Dashboard = ({ onNavigateBack }) => {
         isInspectorOpen, setIsInspectorOpen,
         qualityInspectOpen, setQualityInspectOpen,
         selectedBenchmarks, setSelectedBenchmarks,
+        baselineBenchmarkKey, setBaselineBenchmarkKey,
         activeFilters, setActiveFilters,
         generateShareUrl
     } = dashboardState;
@@ -206,8 +207,6 @@ const Dashboard = ({ onNavigateBack }) => {
         expandedIntegration, setExpandedIntegration,
         awsBucketConfigs, handleAddAWSBucket, removeAWSBucket,
         brv02Runs, brv02CustomLabels, setBrv02CustomLabels,
-        brv02BaselineRunId, setBrv02BaselineRunId,
-        brv02SelectedStages, setBrv02SelectedStages,
     } = dashboardData;
 
     const data = useMemo(() => {
@@ -246,6 +245,14 @@ const Dashboard = ({ onNavigateBack }) => {
     useEffect(() => {
         localStorage.setItem('enableLLMDResults', JSON.stringify(enableLLMDResults));
     }, [enableLLMDResults]);
+
+    useEffect(() => {
+        if (baselineBenchmarkKey) {
+            localStorage.setItem('baselineBenchmarkKey', baselineBenchmarkKey);
+        } else {
+            localStorage.removeItem('baselineBenchmarkKey');
+        }
+    }, [baselineBenchmarkKey]);
 
 
     useEffect(() => {
@@ -1313,6 +1320,16 @@ const Dashboard = ({ onNavigateBack }) => {
         });
     }, [loading, isRestoringConnections, gcsProfiles, filteredBySource, getBenchmarkKey]);
 
+    // Clear baseline if its benchmark is no longer present in the visible
+    // dataset (e.g., the user removed an upload or filtered out its source).
+    useEffect(() => {
+        if (!baselineBenchmarkKey) return;
+        if (loading || isRestoringConnections) return;
+        if (filteredBySource.length === 0) return;
+        const stillVisible = filteredBySource.some(d => getBenchmarkKey(d) === baselineBenchmarkKey);
+        if (!stillVisible) setBaselineBenchmarkKey(null);
+    }, [baselineBenchmarkKey, filteredBySource, loading, isRestoringConnections]);
+
     // Derive selectedModels for compatibility with Header/components
     const selectedModels = useMemo(() => {
         const models = new Set();
@@ -1841,7 +1858,9 @@ const Dashboard = ({ onNavigateBack }) => {
                         showFilterPanel, filterOptions, activeFilters, facetCounts, toggleFilter,
                         selectedModels, modelStats, filteredBySource, showSelectedOnly, setShowSelectedOnly,
                         selectedBenchmarks, setSelectedBenchmarks, setActiveFilters, expandedModels,
-                        toggleBenchmark, toggleModelExpansion, UnifiedDataTable
+                        toggleBenchmark, toggleModelExpansion,
+                        baselineBenchmarkKey, setBaselineBenchmarkKey,
+                        UnifiedDataTable
                     }}
                 />
 
@@ -1863,36 +1882,20 @@ const Dashboard = ({ onNavigateBack }) => {
                         isZoomEnabled, setIsZoomEnabled, zoomDomain, setZoomDomain, chartContainerRef,
                         isDragging, setIsDragging, lastMouseRef, chartColorMode, setChartColorMode,
                         metricAvailability, filteredBySource, xAxisMax, setXAxisMax, setDebugInfo,
-                        isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks
+                        isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks,
+                        baselineBenchmarkKey
                     }}
                 />
 
-                {/* Local Benchmark Comparison — auto-shown when ≥ 2 brv02 runs are uploaded.
-                    With 1 run uploaded, show a slim hint pointing to the Connections panel. */}
-                {brv02Runs.length === 1 && (
-                    <div className="bg-white dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-xl px-4 py-3 text-xs text-slate-500 dark:text-slate-400 flex items-center justify-between gap-3">
-                        <span>
-                            <span className="font-medium text-slate-700 dark:text-slate-300">Local benchmark comparison:</span>{' '}
-                            1 run uploaded. Add at least one more <code className="px-1 py-0.5 rounded bg-slate-100 dark:bg-slate-900/60 text-slate-700 dark:text-slate-300">benchmark_report_v0.2,_*.yaml</code> file in the Connections panel to compare.
-                        </span>
-                        <button
-                            onClick={() => setShowDataPanel(true)}
-                            className="text-cyan-600 dark:text-cyan-400 hover:text-cyan-700 dark:hover:text-cyan-300 font-medium shrink-0"
-                        >
-                            Open Connections →
-                        </button>
-                    </div>
-                )}
+                <RunComparisonChart
+                    filteredBySource={filteredBySource}
+                    selectedBenchmarks={selectedBenchmarks}
+                    getBenchmarkKey={getBenchmarkKey}
+                    baselineBenchmarkKey={baselineBenchmarkKey}
+                    brv02CustomLabels={brv02CustomLabels}
+                    theme={theme}
+                />
 
-                {brv02Runs.length >= 2 && (
-                    <BenchmarkComparisonDashboard
-                        runs={brv02Runs}
-                        customLabels={brv02CustomLabels}
-                        baselineRunId={brv02BaselineRunId}
-                        selectedStages={brv02SelectedStages}
-                        setBaselineRunId={setBrv02BaselineRunId}
-                    />
-                )}
 
 
 

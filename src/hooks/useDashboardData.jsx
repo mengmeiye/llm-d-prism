@@ -40,8 +40,6 @@ export const useDashboardData = (initialState, dashboardState) => {
     const [brv02Runs, setBrv02Runs] = useState([]);
     const [brv02Error, setBrv02Error] = useState(null);
     const [brv02CustomLabels, setBrv02CustomLabels] = useState({});
-    const [brv02BaselineRunId, setBrv02BaselineRunId] = useState(null);
-    const [brv02SelectedStages, setBrv02SelectedStages] = useState({});
     const [driveLoading, setDriveLoading] = useState(false);
     const [driveStatus, setDriveStatus] = useState("");
     const [driveProgress, setDriveProgress] = useState(0);
@@ -1832,8 +1830,6 @@ export const useDashboardData = (initialState, dashboardState) => {
         awsBucketConfigs, setAwsBucketConfigs,
         fetchAWSBucketData, handleAddAWSBucket, removeAWSBucket,
         brv02Runs, brv02Error, setBrv02Error, handleBrv02Upload, removeBrv02Run,
-        brv02CustomLabels, setBrv02CustomLabels,
-        brv02BaselineRunId, setBrv02BaselineRunId,
-        brv02SelectedStages, setBrv02SelectedStages
+        brv02CustomLabels, setBrv02CustomLabels
     };
 };

@@ -28,7 +28,8 @@ export const ThroughputCostChart = (props) => {
         isZoomEnabled, setIsZoomEnabled, zoomDomain, setZoomDomain, chartContainerRef,
         isDragging, setIsDragging, lastMouseRef, chartColorMode, setChartColorMode,
         metricAvailability, filteredBySource, xAxisMax, setXAxisMax, setDebugInfo,
-        isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks
+        isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks,
+        baselineBenchmarkKey
     } = props;
 
     // We can infer canShowPerChip
@@ -200,6 +201,15 @@ export const ThroughputCostChart = (props) => {
             
             // Get unique benchmark keys (each upload becomes a distinct line)
             const uniqueBenchmarks = [...new Set(visibleDataPoints.map(d => d.benchmarkKey))];
+
+            // Baseline series — used to compute %diff in the tooltip. Built only
+            // when a baseline is set and that benchmark is currently visible.
+            const baselineSeries = (baselineBenchmarkKey
+                ? visibleDataPoints
+                      .filter(d => d.benchmarkKey === baselineBenchmarkKey)
+                      .map(d => ({ vx: d.vx, vy: d.vy }))
+                      .sort((a, b) => a.vx - b.vx)
+                : []);
 
             // Calculate Pareto Frontier if enabled
             let paretoData = [];
@@ -787,8 +797,15 @@ export const ThroughputCostChart = (props) => {
                                 return Math.abs(v) >= 100 ? v.toFixed(0) : v.toLocaleString(undefined, { maximumFractionDigits: 2 });
                             }}
                           />
-                          <Tooltip 
-                            content={<CustomChartTooltip xLabel={config.xLabel} yLabel={config.yLabel} costMode={costMode} qualityMetrics={qualityMetrics} />}
+                          <Tooltip
+                            content={<CustomChartTooltip
+                                xLabel={config.xLabel}
+                                yLabel={config.yLabel}
+                                costMode={costMode}
+                                qualityMetrics={qualityMetrics}
+                                baselineBenchmarkKey={baselineBenchmarkKey}
+                                baselineSeries={baselineSeries}
+                            />}
                             wrapperStyle={{ outline: 'none', zIndex: 100 }}
                             cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
                             animationDuration={200}
@@ -838,17 +855,39 @@ export const ThroughputCostChart = (props) => {
                                   displayName = `${model} (${filename})`;
                               }
 
+                              const isBaseline = benchmarkKey === baselineBenchmarkKey;
+                              const starDot = ({ cx, cy, key }) => {
+                                  if (cx == null || cy == null) return null;
+                                  const r = 6.5;
+                                  // 5-point star path centered at (cx, cy)
+                                  const points = [];
+                                  for (let i = 0; i < 10; i++) {
+                                      const angle = (Math.PI / 5) * i - Math.PI / 2;
+                                      const radius = i % 2 === 0 ? r : r / 2.4;
+                                      points.push(`${cx + radius * Math.cos(angle)},${cy + radius * Math.sin(angle)}`);
+                                  }
+                                  return (
+                                      <polygon
+                                          key={key}
+                                          points={points.join(' ')}
+                                          fill={color}
+                                          stroke={theme === 'dark' ? '#0f172a' : '#ffffff'}
+                                          strokeWidth={1.2}
+                                      />
+                                  );
+                              };
+
                               return (
-                              <Line 
+                              <Line
                                 key={benchmarkKey}
                                 data={lineData}
-                                type="monotone" 
-                                dataKey="vy" 
-                                name={displayName} 
-                                stroke={color} 
+                                type="monotone"
+                                dataKey="vy"
+                                name={isBaseline ? `★ ${displayName} (baseline)` : displayName}
+                                stroke={color}
                                 strokeDasharray="0"
-                                strokeWidth={2} 
-                                dot={true} 
+                                strokeWidth={isBaseline ? 3.5 : 2}
+                                dot={isBaseline ? starDot : true}
                                 isAnimationActive={false}
                                 label={(props) => <CustomLabel {...props} lastIndex={lineData.length - 1} text={smartLabels[benchmarkKey] || displayName} stroke={color} showLineLabel={showLabels} showDataLabels={showDataLabels} dataPoint={lineData[props.index]} />}
                                 activeDot={{

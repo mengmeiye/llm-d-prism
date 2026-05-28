@@ -178,10 +178,16 @@ export function parseReportV02(yamlText, filename) {
         inputTokenRate: safeNum(tput.input_token_rate?.mean),
         requestRate: safeNum(tput.request_rate?.mean),
         ttftMean: toMs(lat.time_to_first_token?.mean),
+        ttftP50: toMs(lat.time_to_first_token?.p50),
         ttftP99: toMs(lat.time_to_first_token?.p99),
         tpotMean: toMs(lat.time_per_output_token?.mean),
+        tpotP50: toMs(lat.time_per_output_token?.p50),
+        tpotP99: toMs(lat.time_per_output_token?.p99),
         itlMean: toMs(lat.inter_token_latency?.mean),
+        itlP50: toMs(lat.inter_token_latency?.p50),
+        itlP99: toMs(lat.inter_token_latency?.p99),
         e2eMean: toMs(lat.request_latency?.mean),
+        e2eP50: toMs(lat.request_latency?.p50),
         e2eP99: toMs(lat.request_latency?.p99),
         totalRequests: safeNum(reqs.total),
         failures: safeNum(reqs.failures),
@@ -191,23 +197,41 @@ export function parseReportV02(yamlText, filename) {
     const obs = doc.results?.observability;
     let observability = null;
     if (obs) {
-        const obsComponents = obs.components || [];
-        const primaryObs = (
-            obsComponents.find(c => c.component_label === primaryComponent.metadata?.label) ||
-            obsComponents[0] ||
-            {}
-        );
+        // Prefer the aggregated stats (across components/pods) when available.
+        const kvAgg     = obs.vllm_kv_cache_usage_perc?.aggregated || {};
+        const prefixAgg = obs.vllm_prefix_cache_hit_rate?.aggregated || {};
+        const eppKvAgg  = obs.epp_pool_avg_kv_cache_utilization?.aggregated || {};
+        const eppQAgg   = obs.epp_pool_avg_queue_size?.aggregated || {};
+        const eppRunAgg = obs.epp_pool_avg_running_requests?.aggregated || {};
+        const numRunAgg = obs.vllm_num_requests_running?.aggregated || {};
+        const numWaitAgg = obs.vllm_num_requests_waiting?.aggregated || {};
+        const preemptAgg = obs.vllm_num_preemptions_total?.aggregated || {};
+        const podStartup = obs.pod_startup_times?.aggregate || {};
 
-        const kvCacheUsage     = safeNum(primaryObs.aggregate?.kv_cache_usage?.mean);
-        const prefixCacheHit   = safeNum(obs.vllm_prefix_cache_hit_rate?.components?.[0]?.statistics?.mean);
-        const eppKvUtilization = safeNum(obs.epp_pool_avg_kv_cache_utilization?.components?.[0]?.statistics?.mean);
-        const eppQueueSize     = safeNum(obs.epp_pool_avg_queue_size?.components?.[0]?.statistics?.mean);
-        const podStartupMeanS  = safeNum(obs.pod_startup_times?.aggregate?.mean);
+        const obsValues = {
+            kvCacheUsageMean:    safeNum(kvAgg.mean),
+            kvCacheUsageP50:     safeNum(kvAgg.p50),
+            kvCacheUsageP99:     safeNum(kvAgg.p99),
+            prefixCacheHitMean:  safeNum(prefixAgg.mean),
+            prefixCacheHitP50:   safeNum(prefixAgg.p50),
+            prefixCacheHitP99:   safeNum(prefixAgg.p99),
+            eppKvMean:           safeNum(eppKvAgg.mean),
+            eppKvP50:            safeNum(eppKvAgg.p50),
+            eppKvP99:            safeNum(eppKvAgg.p99),
+            eppQueueMean:        safeNum(eppQAgg.mean),
+            eppQueueP50:         safeNum(eppQAgg.p50),
+            eppQueueP99:         safeNum(eppQAgg.p99),
+            eppRunningMean:      safeNum(eppRunAgg.mean),
+            numRequestsRunningMean: safeNum(numRunAgg.mean),
+            numRequestsWaitingMean: safeNum(numWaitAgg.mean),
+            numPreemptionsMean:  safeNum(preemptAgg.mean),
+            podStartupMeanS:     safeNum(podStartup.mean),
+            podStartupP50S:      safeNum(podStartup.p50),
+            podStartupP99S:      safeNum(podStartup.p99),
+        };
 
-        const hasAny = [kvCacheUsage, prefixCacheHit, eppKvUtilization, eppQueueSize, podStartupMeanS].some(v => v !== null);
-        if (hasAny) {
-            observability = { kvCacheUsage, prefixCacheHitRate: prefixCacheHit, eppKvUtilization, eppQueueSize, podStartupMeanS };
-        }
+        const hasAny = Object.values(obsValues).some(v => v !== null);
+        if (hasAny) observability = obsValues;
     }
 
     return {
@@ -275,8 +299,16 @@ export function stageToEntry(stage) {
     const hardware   = normalizeHardware(scenario.hardware);
     const ts         = timestamp || new Date().toISOString();
     const throughput = performance.outputTokenRate || 0;
-    const latency    = { mean: performance.e2eMean || 0, p50: 0, p99: performance.e2eP99 || 0 };
-    const ttft       = { mean: performance.ttftMean || 0, p50: 0, p99: performance.ttftP99 || 0 };
+    const latency    = {
+        mean: performance.e2eMean || 0,
+        p50: performance.e2eP50 || 0,
+        p99: performance.e2eP99 || 0,
+    };
+    const ttft       = {
+        mean: performance.ttftMean || 0,
+        p50: performance.ttftP50 || 0,
+        p99: performance.ttftP99 || 0,
+    };
 
     return createEntry({
         // Top-level fields read directly by Dashboard / filter logic
@@ -323,16 +355,26 @@ export function stageToEntry(stage) {
 
         metrics: {
             throughput,
+            output_tput: throughput,
+            input_tput: performance.inputTokenRate || 0,
             request_rate: performance.requestRate || 0,
             latency,
             ttft,
             tpot: performance.tpotMean || 0,
             tpot_ms: performance.tpotMean || 0,
+            tpot_p50: performance.tpotP50 || 0,
+            tpot_p99: performance.tpotP99 || 0,
             ntpot: performance.tpotMean || 0,
             ntpot_ms: performance.tpotMean || 0,
             itl: performance.itlMean || 0,
             itl_ms: performance.itlMean || 0,
+            itl_p50: performance.itlP50 || 0,
+            itl_p99: performance.itlP99 || 0,
+            e2e_latency: performance.e2eMean || 0,
             error_count: performance.failures || 0,
+            // Observability metrics (only present for v0.2 reports that
+            // include the observability section).
+            observability: stage.observability || null,
         },
 
         _diagnostics: { msg: [], raw_snapshot: {} },

@@ -22,7 +22,7 @@ import { BenchmarkReportPanel } from "./DataConnections/BenchmarkReportPanel";
 const DataConnectionsPanel = (props) => {
   const [localSampleError, setLocalSampleError] = React.useState(false);
   const [localSampleColor, setLocalSampleColor] = React.useState(null);
-    const { showDataPanel, setShowDataPanel, INTEGRATIONS, apiConfigs, data, bucketConfigs, availableSources, showSampleData, enableLLMDResults, setEnableLLMDResults, expandedIntegration, setExpandedIntegration, setApiError, setGcsError, setLpgError, removeSampleData, removeLLMDData, restoreSampleData, driveLoading, driveStatus, driveProgress, driveError, refreshSource, setApiConfigs, setData, setSelectedSources, setAvailableSources, newProjectId, setNewProjectId, newAuthToken, setNewAuthToken, handleAddApiSource, gcsLoading, gcsError, apiError, lpgError, handleLpgFileUpload, handleLpgGcsScan, handleLpgGcsLoad, hostProject, lpgLoading, lpgPasteText, setLpgPasteText, setLpgLoading, parseLogFile, gcsSuccess, setGcsSuccess, connectionType, setConnectionType, gcsProfiles, selectedSources, removeBucket, newBucketAlias, setNewBucketAlias, newBucketName, setNewBucketName, handleAddBucket, chartMode, tputType, costMode, latType, selectedModels, activeFilters, xAxisMax, showPerChip, showSelectedOnly, showPareto, showLabels, showDataLabels, setIsInspectorOpen, qualityMetrics, setQualityInspectOpen, fetchQualityData, state, awsBucketConfigs, handleAddAWSBucket, removeAWSBucket, addToast, brv02Runs, brv02Error, setBrv02Error, handleBrv02Upload, removeBrv02Run, brv02CustomLabels, setBrv02CustomLabels, brv02BaselineRunId, setBrv02BaselineRunId, brv02SelectedStages, setBrv02SelectedStages } = props;
+    const { showDataPanel, setShowDataPanel, INTEGRATIONS, apiConfigs, data, bucketConfigs, availableSources, showSampleData, enableLLMDResults, setEnableLLMDResults, expandedIntegration, setExpandedIntegration, setApiError, setGcsError, setLpgError, removeSampleData, removeLLMDData, restoreSampleData, driveLoading, driveStatus, driveProgress, driveError, refreshSource, setApiConfigs, setData, setSelectedSources, setAvailableSources, newProjectId, setNewProjectId, newAuthToken, setNewAuthToken, handleAddApiSource, gcsLoading, gcsError, apiError, lpgError, handleLpgFileUpload, handleLpgGcsScan, handleLpgGcsLoad, hostProject, lpgLoading, lpgPasteText, setLpgPasteText, setLpgLoading, parseLogFile, gcsSuccess, setGcsSuccess, connectionType, setConnectionType, gcsProfiles, selectedSources, removeBucket, newBucketAlias, setNewBucketAlias, newBucketName, setNewBucketName, handleAddBucket, chartMode, tputType, costMode, latType, selectedModels, activeFilters, xAxisMax, showPerChip, showSelectedOnly, showPareto, showLabels, showDataLabels, setIsInspectorOpen, qualityMetrics, setQualityInspectOpen, fetchQualityData, state, awsBucketConfigs, handleAddAWSBucket, removeAWSBucket, addToast, brv02Runs, brv02Error, setBrv02Error, handleBrv02Upload, removeBrv02Run, brv02CustomLabels, setBrv02CustomLabels } = props;
   const activationOrderRef = React.useRef(null);
   const prevActiveIdsRef = React.useRef(new Set());
   
@@ -429,10 +429,6 @@ const DataConnectionsPanel = (props) => {
                                                 onRemoveRun={removeBrv02Run}
                                                 customLabels={brv02CustomLabels}
                                                 setCustomLabels={setBrv02CustomLabels}
-                                                baselineRunId={brv02BaselineRunId}
-                                                setBaselineRunId={setBrv02BaselineRunId}
-                                                selectedStages={brv02SelectedStages}
-                                                setSelectedStages={setBrv02SelectedStages}
                                             />
                                         )}
                                     </div>

@@ -18,6 +18,7 @@ import { GIQPanel } from "./DataConnections/GIQPanel";
 import { LPGPanel } from "./DataConnections/LPGPanel";
 import { CustomGCSPanel } from "./DataConnections/CustomGCSPanel";
 import { BenchmarkReportPanel } from "./DataConnections/BenchmarkReportPanel";
+import { getBenchmarkKey } from "../utils/dashboardHelpers";
 
 const DataConnectionsPanel = (props) => {
   const [localSampleError, setLocalSampleError] = React.useState(false);
@@ -429,6 +430,12 @@ const DataConnectionsPanel = (props) => {
                                                 onRemoveRun={removeBrv02Run}
                                                 customLabels={brv02CustomLabels}
                                                 setCustomLabels={setBrv02CustomLabels}
+                                                getRunBenchmarkKey={(runId) => {
+                                                    const entry = (data || []).find(d => d.source === `brv02:${runId}`);
+                                                    return entry ? getBenchmarkKey(entry) : null;
+                                                }}
+                                                baselineBenchmarkKey={state?.baselineBenchmarkKey}
+                                                setBaselineBenchmarkKey={state?.setBaselineBenchmarkKey}
                                             />
                                         )}
                                     </div>

@@ -11,7 +11,7 @@
 // limitations under the License.
 
 import React from "react";
-import { FileJson, X, AlertCircle, Pencil } from "lucide-react";
+import { FileJson, X, AlertCircle, Pencil, Star } from "lucide-react";
 
 const stageSummary = (stage) => {
     if (!stage) return '—';
@@ -23,6 +23,7 @@ const stageSummary = (stage) => {
 export const BenchmarkReportPanel = ({
     runs, error, setError, onUpload, onRemoveRun,
     customLabels, setCustomLabels,
+    getRunBenchmarkKey, baselineBenchmarkKey, setBaselineBenchmarkKey,
 }) => {
     const [editingRunId, setEditingRunId] = React.useState(null);
     const [editingValue, setEditingValue] = React.useState('');
@@ -120,10 +121,17 @@ export const BenchmarkReportPanel = ({
                             Uploaded Runs ({runs.length})
                         </label>
                         {runs.map(run => {
+                            const runKey = getRunBenchmarkKey ? getRunBenchmarkKey(run.runId) : null;
+                            const isBaseline = !!runKey && runKey === baselineBenchmarkKey;
+                            const canSetBaseline = !!runKey && !!setBaselineBenchmarkKey;
                             return (
                                 <div
                                     key={run.runId}
-                                    className="rounded-md border px-3 py-2 text-xs flex flex-col gap-1.5 border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
+                                    className={`rounded-md border px-3 py-2 text-xs flex flex-col gap-1.5 ${
+                                        isBaseline
+                                            ? 'border-purple-400 dark:border-purple-500 ring-1 ring-purple-400/40 bg-purple-50/40 dark:bg-purple-950/30'
+                                            : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
+                                    }`}
                                 >
                                     <div className="flex items-center justify-between gap-2">
                                         {/* Inline label — click to rename */}
@@ -159,6 +167,29 @@ export const BenchmarkReportPanel = ({
                                             </button>
                                         )}
                                         <div className="flex items-center gap-1 shrink-0">
+                                            <button
+                                                onClick={() => {
+                                                    if (!canSetBaseline) return;
+                                                    setBaselineBenchmarkKey(isBaseline ? null : runKey);
+                                                }}
+                                                disabled={!canSetBaseline}
+                                                title={
+                                                    !canSetBaseline
+                                                        ? 'Run not yet selected — open Benchmark Browser to enable baseline'
+                                                        : isBaseline
+                                                            ? 'Click to clear baseline'
+                                                            : 'Set as baseline (★) for Δ% comparison'
+                                                }
+                                                className={`p-1 rounded transition-colors ${
+                                                    !canSetBaseline
+                                                        ? 'text-slate-200 dark:text-slate-700 cursor-not-allowed'
+                                                        : isBaseline
+                                                            ? 'text-purple-500 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300'
+                                                            : 'text-slate-300 dark:text-slate-600 hover:text-purple-500 dark:hover:text-purple-400'
+                                                }`}
+                                            >
+                                                <Star size={14} fill={isBaseline ? 'currentColor' : 'none'} />
+                                            </button>
                                             <button
                                                 onClick={() => {
                                                     onRemoveRun(run.runId);

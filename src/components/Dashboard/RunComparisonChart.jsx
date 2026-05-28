@@ -19,8 +19,8 @@ import { ChartCard, CustomXAxis, CustomYAxis } from '../common';
 
 // One-bar-per-run comparison chart. Metrics are grouped into families
 // (TTFT / TPOT / ITL / E2E / observability) so the user picks the family
-// once and then flips between mean / p50 / p99 in a sub-toggle. Single-stat
-// metrics (Output Tput, Request rate, …) just render the family button.
+// once and then chooses any combination of mean / p50 / p99 — selected
+// stats render as side-by-side grouped bars in the same plot.
 
 const METRICS = [
     // Throughput family — single stat each
@@ -87,6 +87,13 @@ const METRICS = [
       ] },
 ];
 
+// Stable colors per stat — used for both bar fill and the legend.
+const STAT_COLORS = {
+    mean: '#3b82f6', // blue-500
+    p50:  '#f59e0b', // amber-500
+    p99:  '#8b5cf6', // violet-500
+};
+
 // vllm cache rates are emitted as fractions for kv_cache_usage but as
 // percentages for prefix_cache_hit_rate. Detect and normalize to 0-100.
 function pct(v) {
@@ -111,11 +118,9 @@ const formatVal = (v, dec) => {
 const truncateLabel = (s, n = 22) => (s && s.length > n ? s.slice(0, n - 1) + '…' : s);
 
 const buildBenchmarkLabel = (key, sample, brv02CustomLabels) => {
-    // brv02 uploads — use the user's custom label or runLabel
     if (sample?.source?.startsWith('brv02:')) {
         const runId = sample.source.slice('brv02:'.length);
         if (brv02CustomLabels?.[runId]) return brv02CustomLabels[runId];
-        // Fall back to model · QPS · stage
         const qps = sample.workload?.target_qps;
         const stage = sample.workload?.stage;
         const parts = [sample.model_name || sample.model || 'run'];
@@ -123,43 +128,51 @@ const buildBenchmarkLabel = (key, sample, brv02CustomLabels) => {
         if (qps != null) parts.push(`${qps} QPS`);
         return parts.join(' · ');
     }
-    // Other sources — model · short source tag
     return sample?.model_name || sample?.model || key.slice(0, 30);
 };
 
-const BarTooltip = ({ active, payload, metric, stat, view, baselineSet }) => {
+// Tooltip: list every selected stat for the hovered benchmark, with the
+// raw value and (if baseline set) %diff.
+const BarTooltip = ({ active, payload, metric, activeStats, baselineSet }) => {
     if (!active || !payload || !payload.length) return null;
     const d = payload[0].payload;
-    const metricLabel = `${metric.label}${metric.stats.length > 1 ? ` ${stat.label}` : ''}`;
     return (
-        <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-2xl px-3 py-2 backdrop-blur-md text-slate-900 dark:text-slate-100 text-xs min-w-[200px]">
+        <div className="bg-white/95 dark:bg-slate-900/95 border border-slate-200 dark:border-slate-700/50 rounded-xl shadow-2xl px-3 py-2 backdrop-blur-md text-slate-900 dark:text-slate-100 text-xs min-w-[220px]">
             <div className="flex items-center gap-2 mb-1.5">
-                <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.fill }} />
                 <span className="font-semibold truncate">{d.fullLabel}</span>
                 {d.isBaseline && <span className="text-cyan-500 dark:text-cyan-400 text-[10px] shrink-0">★ baseline</span>}
             </div>
-            <div className="space-y-0.5 font-mono">
-                <div className="flex items-baseline justify-between gap-3">
-                    <span className="text-slate-500 dark:text-slate-400 text-[11px]">{metricLabel}</span>
-                    <span className="text-sm">
-                        {formatVal(d.rawValue, metric.dec)}
-                        <span className="text-slate-500 dark:text-slate-400 text-[10px] ml-1">{metric.unit}</span>
-                    </span>
-                </div>
-                {baselineSet && d.diff !== null && d.diff !== undefined && (
-                    <div className="flex items-baseline justify-between gap-3 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
-                        <span className="text-slate-500 dark:text-slate-400 text-[11px]">vs baseline</span>
-                        <span className={`text-sm font-bold ${
-                            d.isImprovement === null ? 'text-slate-400'
-                                : d.isImprovement ? 'text-emerald-500 dark:text-emerald-400'
-                                : 'text-red-500 dark:text-red-400'
-                        }`}>
-                            {d.diff > 0 ? '+' : ''}{d.diff.toFixed(1)}%
-                        </span>
-                    </div>
-                )}
-                {view === 'diff' && !baselineSet && (
-                    <span className="text-[10px] text-slate-400">no baseline</span>
+            <div className="space-y-1 font-mono">
+                {activeStats.map(s => {
+                    const raw = d[`raw_${s.id}`];
+                    const diff = d[`diff_${s.id}`];
+                    const isImp = d[`imp_${s.id}`];
+                    const statLabel = `${metric.label}${metric.stats.length > 1 ? ` ${s.label}` : ''}`;
+                    return (
+                        <div key={s.id} className="flex items-baseline justify-between gap-3 border-l-2 pl-2"
+                             style={{ borderColor: STAT_COLORS[s.id] }}>
+                            <span className="text-slate-500 dark:text-slate-400 text-[11px]">{statLabel}</span>
+                            <span className="text-sm flex items-baseline gap-2">
+                                <span>{formatVal(raw, metric.dec)}
+                                    {metric.unit && (
+                                        <span className="text-slate-500 dark:text-slate-400 text-[10px] ml-1">{metric.unit}</span>
+                                    )}
+                                </span>
+                                {baselineSet && diff !== null && diff !== undefined && (
+                                    <span className={`text-xs font-bold ${
+                                        isImp === null ? 'text-slate-400'
+                                            : isImp ? 'text-emerald-500 dark:text-emerald-400'
+                                            : 'text-red-500 dark:text-red-400'
+                                    }`}>
+                                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                                    </span>
+                                )}
+                            </span>
+                        </div>
+                    );
+                })}
+                {!baselineSet && (
+                    <div className="text-[10px] text-slate-400 pt-1">no baseline · select ★ on a run to compare</div>
                 )}
             </div>
         </div>
@@ -175,12 +188,10 @@ export const RunComparisonChart = ({
     theme,
 }) => {
     const [metricId, setMetricId] = useState('output_tput');
-    const [statId, setStatId] = useState('mean');
-    const [viewOverride, setViewOverride] = useState(null); // null = follow baseline default
+    // Multi-select: any combination of {'mean','p50','p99'} for the active metric.
+    const [statIds, setStatIds] = useState(() => new Set(['mean']));
+    const [viewOverride, setViewOverride] = useState(null);
 
-    // When the baseline is cleared, drop the manual view override so the chart
-    // falls back to the natural default ("absolute"). The user can flip back
-    // to "diff" manually once they pick a baseline.
     useEffect(() => {
         if (!baselineBenchmarkKey) setViewOverride(null);
     }, [baselineBenchmarkKey]);
@@ -189,14 +200,40 @@ export const RunComparisonChart = ({
     const view = viewOverride ?? (canDiff ? 'diff' : 'absolute');
 
     const metric = METRICS.find(m => m.id === metricId) || METRICS[0];
-    const stat = metric.stats.find(s => s.id === statId) || metric.stats[0];
 
-    // If the user picks a metric without the current stat, fall back to mean.
+    // Stats actually visible on the chart: intersection of the user's selection
+    // with the stats this metric supports. Always at least one; default 'mean'.
+    const activeStats = useMemo(() => {
+        const visible = metric.stats.filter(s => statIds.has(s.id));
+        return visible.length > 0 ? visible : [metric.stats[0]];
+    }, [metric, statIds]);
+
+    // When the user changes metric, drop selected stat ids that the new metric
+    // doesn't expose; if nothing remains, default back to mean.
     useEffect(() => {
-        if (!metric.stats.find(s => s.id === statId)) setStatId('mean');
+        const supported = new Set(metric.stats.map(s => s.id));
+        setStatIds(prev => {
+            const next = new Set([...prev].filter(id => supported.has(id)));
+            if (next.size === 0) next.add('mean');
+            return next;
+        });
     }, [metricId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Group entries by benchmarkKey, build one bar per selected benchmark.
+    const toggleStat = (id) => {
+        setStatIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                if (next.size > 1) next.delete(id); // never empty
+            } else {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    // Build chart data once per render, computing values and diffs for EVERY
+    // stat the metric supports (cheap; lets us re-render without recomputing
+    // when the user toggles stat visibility).
     const chartData = useMemo(() => {
         if (selectedBenchmarks.size < 2) return [];
 
@@ -210,123 +247,147 @@ export const RunComparisonChart = ({
 
         const list = [];
         byKey.forEach((entries, key) => {
-            const value = aggregateValue(entries, stat.fn, metric.higher);
-            if (value === null) return;
             const sample = entries[0];
             const fullLabel = buildBenchmarkLabel(key, sample, brv02CustomLabels);
-            list.push({
+            const isBaseline = key === baselineBenchmarkKey;
+            const row = {
                 key,
                 fullLabel,
-                label: truncateLabel(fullLabel, 24),
-                rawValue: value,
-                isBaseline: key === baselineBenchmarkKey,
+                // ★ on the x-axis tick marks the whole benchmark group as
+                // baseline — each bar's %diff is computed vs the same-stat
+                // value of THIS benchmark, so the marker belongs to the
+                // group, not any single bar.
+                label: (isBaseline ? '★ ' : '') + truncateLabel(fullLabel, 22),
+                isBaseline,
+            };
+            metric.stats.forEach(s => {
+                row[`raw_${s.id}`] = aggregateValue(entries, s.fn, metric.higher);
+            });
+            list.push(row);
+        });
+
+        // Compute %diff vs baseline for each stat.
+        const baselineRow = list.find(r => r.isBaseline);
+        list.forEach(r => {
+            metric.stats.forEach(s => {
+                const v = r[`raw_${s.id}`];
+                const bv = baselineRow ? baselineRow[`raw_${s.id}`] : null;
+                if (r.isBaseline) {
+                    r[`diff_${s.id}`] = 0;
+                    r[`imp_${s.id}`] = null;
+                } else if (v === null || bv === null || bv === 0) {
+                    r[`diff_${s.id}`] = null;
+                    r[`imp_${s.id}`] = null;
+                } else {
+                    const diff = ((v - bv) / Math.abs(bv)) * 100;
+                    r[`diff_${s.id}`] = diff;
+                    r[`imp_${s.id}`] = Math.abs(diff) < 0.1 ? null
+                        : (metric.higher ? diff > 0 : diff < 0);
+                }
             });
         });
 
-        // Compute %diff vs baseline.
-        const baselineEntry = list.find(b => b.isBaseline);
-        const baselineVal = baselineEntry?.rawValue ?? null;
+        // Stable order: baseline first, then by mean (or first available stat) desc.
+        const sortStat = metric.stats.find(s => statIds.has(s.id))?.id ?? metric.stats[0].id;
+        return list.sort((a, b) => {
+            if (a.isBaseline && !b.isBaseline) return -1;
+            if (b.isBaseline && !a.isBaseline) return 1;
+            return (b[`raw_${sortStat}`] ?? 0) - (a[`raw_${sortStat}`] ?? 0);
+        });
+    }, [filteredBySource, selectedBenchmarks, getBenchmarkKey, metric, baselineBenchmarkKey, brv02CustomLabels, statIds]);
 
-        return list
-            .map(b => {
-                const diff = (baselineVal !== null && baselineVal !== 0 && !b.isBaseline)
-                    ? ((b.rawValue - baselineVal) / Math.abs(baselineVal)) * 100
-                    : null;
-                const isImprovement = diff === null
-                    ? null
-                    : Math.abs(diff) < 0.1 ? null
-                        : (metric.higher ? diff > 0 : diff < 0);
-                return { ...b, diff, isImprovement };
-            })
-            // Stable order: baseline first, then by raw value descending.
-            .sort((a, b) => {
-                if (a.isBaseline && !b.isBaseline) return -1;
-                if (b.isBaseline && !a.isBaseline) return 1;
-                return (b.rawValue ?? 0) - (a.rawValue ?? 0);
-            });
-    }, [filteredBySource, selectedBenchmarks, getBenchmarkKey, metric, stat, baselineBenchmarkKey, brv02CustomLabels]);
-
-    // Don't render the panel at all until the user picks at least 2 benchmarks.
-    // (Once they have, we always render so the toggles remain accessible even
-    // when a chosen metric has no data for the current selection.)
     if (selectedBenchmarks.size < 2) return null;
 
-    const plotData = chartData.map(d => ({
-        ...d,
-        value: view === 'diff' ? (d.isBaseline ? 0 : d.diff) : d.rawValue,
-        // Recharts cell `fill` per bar.
-        fill: d.isBaseline
-            ? (theme === 'dark' ? '#06b6d4' : '#0891b2')
-            : view === 'diff' && d.isImprovement !== null
-                ? (d.isImprovement ? '#10b981' : '#ef4444')
-                : '#3b82f6',
-    }));
+    // Drop benchmarks where ALL active stats are null — they have nothing to render.
+    const plotData = chartData.filter(r =>
+        activeStats.some(s => r[`raw_${s.id}`] !== null && r[`raw_${s.id}`] !== undefined)
+    );
 
+    // Build bar dataKey/value pairs for the active view.
+    const barKey = (statId) => view === 'diff' ? `diff_${statId}` : `raw_${statId}`;
     const hasPlotData = plotData.length >= 2;
 
-    // Render labels above each bar. In absolute view the percentage diff
-    // sits ABOVE the absolute number (so the eye reads regression first,
-    // value second). High-contrast colors keep the text legible on dark bg.
+    // Single-stat selection keeps the rich on-bar labels (abs + %diff stacked);
+    // grouped bars get just the absolute value above each bar to avoid clutter.
+    const showRichLabels = activeStats.length === 1;
+
     const ABS_COLOR_DARK   = '#f8fafc';
     const ABS_COLOR_LIGHT  = '#0f172a';
     const BL_COLOR_DARK    = '#22d3ee';
     const BL_COLOR_LIGHT   = '#0e7490';
-    const POS_COLOR        = '#34d399'; // emerald-400 (improvement)
-    const NEG_COLOR        = '#f87171'; // red-400 (regression)
+    const POS_COLOR        = '#34d399';
+    const NEG_COLOR        = '#f87171';
 
-    const renderTopLabel = (props) => {
+    // LabelList content factory — bound to a specific stat so we know which
+    // value to render and which row metadata to pull for ★ baseline / %diff.
+    const makeLabelRenderer = (statId) => (props) => {
         const { x, y, width, index } = props;
         if (x == null || y == null || width == null) return null;
         const entry = plotData[index];
         if (!entry) return null;
 
+        const raw = entry[`raw_${statId}`];
+        const diff = entry[`diff_${statId}`];
+        const imp = entry[`imp_${statId}`];
+        if (raw === null || raw === undefined) return null;
+
         const cx = x + width / 2;
-        const isAbove = (entry.value ?? 0) >= 0;
+        const isAbove = view === 'diff'
+            ? ((diff ?? 0) >= 0)
+            : true;
 
         if (view === 'diff') {
-            // Diff view: put a single, prominent label above each bar.
             const cy = isAbove ? y - 8 : y + 16;
-            if (entry.isBaseline) {
-                return (
-                    <text x={cx} y={cy} textAnchor="middle" fontSize={12} fontWeight={800}
-                          fill={theme === 'dark' ? BL_COLOR_DARK : BL_COLOR_LIGHT}>
-                        ★ baseline
-                    </text>
-                );
-            }
-            if (entry.diff === null) return null;
-            const sign = entry.diff > 0 ? '+' : '';
-            const fill = entry.isImprovement === null ? (theme === 'dark' ? '#cbd5e1' : '#475569')
-                : entry.isImprovement ? POS_COLOR : NEG_COLOR;
+            // Baseline bar is the 0% reference — no label needed; ★ marker
+            // is on the x-axis tick.
+            if (entry.isBaseline || diff === null) return null;
+            const sign = diff > 0 ? '+' : '';
+            const fill = imp === null ? (theme === 'dark' ? '#cbd5e1' : '#475569')
+                : imp ? POS_COLOR : NEG_COLOR;
             return (
-                <text x={cx} y={cy} textAnchor="middle" fontSize={13} fontWeight={800} fill={fill}>
-                    {sign}{entry.diff.toFixed(1)}%
+                <text x={cx} y={cy} textAnchor="middle" fontSize={showRichLabels ? 13 : 10}
+                      fontWeight={800} fill={fill}>
+                    {sign}{diff.toFixed(1)}%
                 </text>
             );
         }
 
-        // Absolute view — %diff stacked ABOVE absolute number, both clear of bar.
-        const valStr = formatVal(entry.rawValue, metric.dec);
+        // Absolute view
+        const valStr = formatVal(raw, metric.dec);
         const absFill = theme === 'dark' ? ABS_COLOR_DARK : ABS_COLOR_LIGHT;
-        const blFill  = theme === 'dark' ? BL_COLOR_DARK  : BL_COLOR_LIGHT;
-        const TOP_Y = y - 22; // %diff or ★ baseline
-        const ABS_Y = y - 6;  // absolute number, just above bar
+
+        if (showRichLabels) {
+            const TOP_Y = y - 22;
+            const ABS_Y = y - 6;
+            return (
+                <g>
+                    {canDiff && !entry.isBaseline && diff !== null && (
+                        <text x={cx} y={TOP_Y} textAnchor="middle" fontSize={12} fontWeight={800}
+                              fill={imp === null ? (theme === 'dark' ? '#cbd5e1' : '#475569')
+                                  : imp ? POS_COLOR : NEG_COLOR}>
+                            {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
+                        </text>
+                    )}
+                    <text x={cx} y={ABS_Y} textAnchor="middle" fontSize={12} fontWeight={700}
+                          fill={absFill}>
+                        {valStr}
+                    </text>
+                </g>
+            );
+        }
+
+        // Grouped: small abs value + small %diff above each sub-bar.
+        const showDiffLabel = canDiff && !entry.isBaseline && diff !== null;
         return (
             <g>
-                {canDiff && !entry.isBaseline && entry.diff !== null && (
-                    <text x={cx} y={TOP_Y} textAnchor="middle" fontSize={12} fontWeight={800}
-                          fill={entry.isImprovement === null ? (theme === 'dark' ? '#cbd5e1' : '#475569')
-                              : entry.isImprovement ? POS_COLOR : NEG_COLOR}>
-                        {entry.diff > 0 ? '+' : ''}{entry.diff.toFixed(1)}%
+                {showDiffLabel && (
+                    <text x={cx} y={y - 16} textAnchor="middle" fontSize={10} fontWeight={800}
+                          fill={imp === null ? (theme === 'dark' ? '#cbd5e1' : '#475569')
+                              : imp ? POS_COLOR : NEG_COLOR}>
+                        {diff > 0 ? '+' : ''}{diff.toFixed(1)}%
                     </text>
                 )}
-                {entry.isBaseline && (
-                    <text x={cx} y={TOP_Y} textAnchor="middle" fontSize={12} fontWeight={800}
-                          fill={blFill}>
-                        ★ baseline
-                    </text>
-                )}
-                <text x={cx} y={ABS_Y} textAnchor="middle" fontSize={12} fontWeight={700}
+                <text x={cx} y={y - 4} textAnchor="middle" fontSize={10} fontWeight={700}
                       fill={absFill}>
                     {valStr}
                 </text>
@@ -334,13 +395,14 @@ export const RunComparisonChart = ({
         );
     };
 
-    const metricLabelFull = `${metric.label}${metric.stats.length > 1 ? ` ${stat.label}` : ''}`;
+    const activeStatsLabel = activeStats.map(s => s.label).join(', ');
+    const metricLabelFull = metric.stats.length > 1
+        ? `${metric.label} (${activeStatsLabel})`
+        : metric.label;
     const yLabel = view === 'diff'
         ? `Δ ${metricLabelFull} vs baseline (%)`
-        : `${metricLabelFull}${metric.unit ? ` (${metric.unit})` : ''}`;
+        : `${metric.label}${metric.unit ? ` (${metric.unit})` : ''}`;
 
-    // Tailwind purges class names not present in source, so we keep the
-    // active-state classnames explicit (no dynamic bg-${color}-600).
     const activeClass = (kind) => kind === 'cyan'
         ? 'bg-cyan-600 text-white shadow-sm'
         : kind === 'emerald'
@@ -374,15 +436,25 @@ export const RunComparisonChart = ({
                     <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-800/50 p-2 rounded-lg border border-slate-200 dark:border-slate-700/50">
                         <span className="text-[10px] text-slate-700 dark:text-slate-500 font-bold uppercase tracking-wider mr-1">Stat</span>
                         <div className="h-4 w-px bg-slate-300 dark:bg-slate-700 mr-1" />
-                        {metric.stats.map(opt => (
-                            <button
-                                key={opt.id}
-                                onClick={() => setStatId(opt.id)}
-                                className={`${baseTogglesClass} ${statId === opt.id ? activeClass('purple') : inactiveToggleClass}`}
-                            >
-                                {opt.label}
-                            </button>
-                        ))}
+                        {metric.stats.map(opt => {
+                            const isOn = statIds.has(opt.id);
+                            return (
+                                <button
+                                    key={opt.id}
+                                    onClick={() => toggleStat(opt.id)}
+                                    title={isOn && statIds.size === 1 ? 'Keep at least one stat' : ''}
+                                    className={`${baseTogglesClass} flex items-center gap-1.5 ${
+                                        isOn ? activeClass('purple') : inactiveToggleClass
+                                    }`}
+                                >
+                                    <span
+                                        className="w-2 h-2 rounded-sm"
+                                        style={{ background: STAT_COLORS[opt.id], opacity: isOn ? 1 : 0.45 }}
+                                    />
+                                    {opt.label}
+                                </button>
+                            );
+                        })}
                     </div>
                 )}
 
@@ -416,8 +488,15 @@ export const RunComparisonChart = ({
                 {hasPlotData ? (
                     <ResponsiveContainer width="100%" height="100%">
                         <BarChart
+                            // Recharts caches per-bar layout by registration order, so
+                            // toggling a stat on/off after others were registered can leave
+                            // the new bar appended at the right of every group regardless
+                            // of JSX order. Re-keying on the active stat set forces a clean
+                            // remount that always renders bars in metric.stats order.
+                            key={activeStats.map(s => s.id).join(',')}
                             data={plotData}
-                            margin={{ top: 36, right: 20, left: 30, bottom: 60 }}
+                            margin={{ top: 44, right: 20, left: 30, bottom: 60 }}
+                            barGap={2}
                         >
                             <CartesianGrid strokeDasharray="3 3" stroke="#475569" opacity={0.3} vertical={false} />
                             <CustomXAxis
@@ -445,7 +524,7 @@ export const RunComparisonChart = ({
                             />
                             <Tooltip
                                 cursor={{ fill: 'rgba(148, 163, 184, 0.08)' }}
-                                content={<BarTooltip metric={metric} stat={stat} view={view} baselineSet={canDiff} />}
+                                content={<BarTooltip metric={metric} activeStats={activeStats} baselineSet={canDiff} />}
                             />
                             {view === 'diff' && (
                                 <ReferenceLine
@@ -455,23 +534,31 @@ export const RunComparisonChart = ({
                                     strokeDasharray="4 4"
                                 />
                             )}
-                            <Bar dataKey="value" radius={[4, 4, 0, 0]} maxBarSize={72}>
-                                {plotData.map((entry, i) => (
-                                    <Cell
-                                        key={i}
-                                        fill={entry.fill}
-                                        stroke={entry.isBaseline ? (theme === 'dark' ? '#67e8f9' : '#0e7490') : 'none'}
-                                        strokeWidth={entry.isBaseline ? 1.5 : 0}
-                                    />
-                                ))}
-                                <LabelList dataKey="value" content={renderTopLabel} />
-                            </Bar>
+                            {activeStats.map(s => (
+                                <Bar
+                                    key={s.id}
+                                    dataKey={barKey(s.id)}
+                                    fill={STAT_COLORS[s.id]}
+                                    radius={[4, 4, 0, 0]}
+                                    maxBarSize={72}
+                                >
+                                    {plotData.map((entry, i) => (
+                                        <Cell
+                                            key={i}
+                                            fill={STAT_COLORS[s.id]}
+                                            stroke={entry.isBaseline ? (theme === 'dark' ? '#67e8f9' : '#0e7490') : 'none'}
+                                            strokeWidth={entry.isBaseline ? 1.5 : 0}
+                                        />
+                                    ))}
+                                    <LabelList dataKey={barKey(s.id)} content={makeLabelRenderer(s.id)} />
+                                </Bar>
+                            ))}
                         </BarChart>
                     </ResponsiveContainer>
                 ) : (
                     <div className="h-full flex items-center justify-center text-center px-6">
                         <div className="text-sm text-slate-500 dark:text-slate-400 max-w-md">
-                            <p className="font-medium mb-1">No data for {metricLabelFull}</p>
+                            <p className="font-medium mb-1">No data for {metric.label}</p>
                             <p className="text-xs">
                                 The selected benchmarks don't include this metric. Try a different
                                 metric (observability metrics like KV cache usage and pod startup
@@ -483,11 +570,11 @@ export const RunComparisonChart = ({
             </div>
 
             <p className="text-[10px] text-slate-400 dark:text-slate-500 mt-2 text-center">
-                One bar per selected benchmark · multi-point benchmarks aggregate to{' '}
-                {metric.higher ? 'max' : 'min'} {metricLabelFull.toLowerCase()}
+                One bar per selected benchmark{activeStats.length > 1 ? ` × ${activeStats.length} stats` : ''} ·
+                multi-point benchmarks aggregate to {metric.higher ? 'max' : 'min'} {metric.label.toLowerCase()}
                 {canDiff
                     ? ' · Δ% in green = improvement, red = regression'
-                    : ' · set a baseline (★) on a row to enable Δ% comparison'}
+                    : ' · set a baseline (★) on a run to enable Δ% comparison'}
             </p>
         </ChartCard>
     );

@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
-    Home, 
-    BarChart2, 
-    Route, 
-    Compass, 
-    Database, 
-    Lightbulb, 
+import {
+    Home,
+    BarChart2,
+    Route,
+    Compass,
+    Database,
+    Lightbulb,
     Layers,
     Split,
     Brain,
     DollarSign,
     FileCode,
-    Activity
+    Activity,
 } from 'lucide-react';
 
 const MENU_GROUPS = [

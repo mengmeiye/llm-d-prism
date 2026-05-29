@@ -26,8 +26,11 @@ function App() {
   const mainRef = useRef(null);
   const [currentView, setCurrentView] = useState(() => {
     const params = new URLSearchParams(window.location.search);
-    return params.get('view') || 'home';
-  }); // 'home' | 'intelligent-routing' | 'benchmark-browser' | 'workload-catalog'
+    // Legacy 'benchmark-comparison' deep links land on the Benchmark Browser,
+    // where the comparison renders inline once brv02 runs are uploaded.
+    const view = params.get('view') || 'home';
+    return view === 'benchmark-comparison' ? 'benchmark-browser' : view;
+  }); // 'home' | 'benchmark-browser' | 'intelligent-routing' | 'schema-explorer' | 'workload-catalog' | 'guided-analysis'
 
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 

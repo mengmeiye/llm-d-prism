@@ -33,6 +33,7 @@ import { CustomLabel, MultiSelectDropdown, Row, CustomChartTooltip, CustomXAxis,
 import { FilterPanel } from './Dashboard/FilterPanel';
 import { UnifiedDataTable } from './Dashboard/UnifiedDataTable';
 import { ThroughputCostChart } from './Dashboard/ThroughputCostChart';
+import { RunComparisonChart } from './Dashboard/RunComparisonChart';
 import DataInspector from './DataInspector';
 import { useDashboardState } from '../hooks/useDashboardState';
 import { useDashboardData } from '../hooks/useDashboardData';
@@ -159,6 +160,7 @@ const Dashboard = ({ onNavigateBack }) => {
         isInspectorOpen, setIsInspectorOpen,
         qualityInspectOpen, setQualityInspectOpen,
         selectedBenchmarks, setSelectedBenchmarks,
+        baselineBenchmarkKey, setBaselineBenchmarkKey,
         activeFilters, setActiveFilters,
         generateShareUrl
     } = dashboardState;
@@ -203,7 +205,8 @@ const Dashboard = ({ onNavigateBack }) => {
         debugInfo, setDebugInfo,
         API_KEY,
         expandedIntegration, setExpandedIntegration,
-        awsBucketConfigs, handleAddAWSBucket, removeAWSBucket
+        awsBucketConfigs, handleAddAWSBucket, removeAWSBucket,
+        brv02Runs, brv02CustomLabels, setBrv02CustomLabels,
     } = dashboardData;
 
     const data = useMemo(() => {
@@ -242,6 +245,14 @@ const Dashboard = ({ onNavigateBack }) => {
     useEffect(() => {
         localStorage.setItem('enableLLMDResults', JSON.stringify(enableLLMDResults));
     }, [enableLLMDResults]);
+
+    useEffect(() => {
+        if (baselineBenchmarkKey) {
+            localStorage.setItem('baselineBenchmarkKey', baselineBenchmarkKey);
+        } else {
+            localStorage.removeItem('baselineBenchmarkKey');
+        }
+    }, [baselineBenchmarkKey]);
 
 
     useEffect(() => {
@@ -1309,6 +1320,16 @@ const Dashboard = ({ onNavigateBack }) => {
         });
     }, [loading, isRestoringConnections, gcsProfiles, filteredBySource, getBenchmarkKey]);
 
+    // Clear baseline if its benchmark is no longer present in the visible
+    // dataset (e.g., the user removed an upload or filtered out its source).
+    useEffect(() => {
+        if (!baselineBenchmarkKey) return;
+        if (loading || isRestoringConnections) return;
+        if (filteredBySource.length === 0) return;
+        const stillVisible = filteredBySource.some(d => getBenchmarkKey(d) === baselineBenchmarkKey);
+        if (!stillVisible) setBaselineBenchmarkKey(null);
+    }, [baselineBenchmarkKey, filteredBySource, loading, isRestoringConnections]);
+
     // Derive selectedModels for compatibility with Header/components
     const selectedModels = useMemo(() => {
         const models = new Set();
@@ -1837,7 +1858,9 @@ const Dashboard = ({ onNavigateBack }) => {
                         showFilterPanel, filterOptions, activeFilters, facetCounts, toggleFilter,
                         selectedModels, modelStats, filteredBySource, showSelectedOnly, setShowSelectedOnly,
                         selectedBenchmarks, setSelectedBenchmarks, setActiveFilters, expandedModels,
-                        toggleBenchmark, toggleModelExpansion, UnifiedDataTable
+                        toggleBenchmark, toggleModelExpansion,
+                        baselineBenchmarkKey, setBaselineBenchmarkKey,
+                        UnifiedDataTable
                     }}
                 />
 
@@ -1859,9 +1882,20 @@ const Dashboard = ({ onNavigateBack }) => {
                         isZoomEnabled, setIsZoomEnabled, zoomDomain, setZoomDomain, chartContainerRef,
                         isDragging, setIsDragging, lastMouseRef, chartColorMode, setChartColorMode,
                         metricAvailability, filteredBySource, xAxisMax, setXAxisMax, setDebugInfo,
-                        isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks
+                        isLogScaleX, setIsLogScaleX, setLatType, selectedBenchmarks,
+                        baselineBenchmarkKey
                     }}
                 />
+
+                <RunComparisonChart
+                    filteredBySource={filteredBySource}
+                    selectedBenchmarks={selectedBenchmarks}
+                    getBenchmarkKey={getBenchmarkKey}
+                    baselineBenchmarkKey={baselineBenchmarkKey}
+                    brv02CustomLabels={brv02CustomLabels}
+                    theme={theme}
+                />
+
 
 
 
@@ -1918,17 +1952,19 @@ const Dashboard = ({ onNavigateBack }) => {
 
                 {/* Application Layer */}
 
+            </div>
+            </main>
 
-
-                {/* Data Connections Panel Overlay */}
+            {/* Data Connections Panel — rendered outside <main> so flex/overflow
+                inside main cannot affect its fixed positioning or stacking context */}
                 {showDataPanel && (
-                    <div 
+                    <div
                         className="fixed inset-0 bg-black/50 z-[55] backdrop-blur-sm transition-opacity"
                         onClick={() => setShowDataPanel(false)}
                     />
                 )}
                 <DataConnectionsPanel
-                    {...dashboardData} // Spread all data/handlers from useDashboardData
+                    {...dashboardData}
                     addToast={addToast}
                     showDataPanel={showDataPanel}
                     setShowDataPanel={setShowDataPanel}
@@ -2004,8 +2040,6 @@ const Dashboard = ({ onNavigateBack }) => {
                     handleAddAWSBucket={handleAddAWSBucket}
                     removeAWSBucket={removeAWSBucket}
                 />
-            </div>
-            </main>
         </div>
 
     );

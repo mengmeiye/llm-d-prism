@@ -51,6 +51,7 @@ export const getSharedState = () => {
             sources: parseSet('src'),
             buckets: params.getAll('buckets'),
             giqProjects: params.getAll('apis'),
+            baselineKey: params.get('baseline') || null,
             xAxisMax: parseNum('x_max', Infinity),
             showPerChip: parseBool('per_chip', false),
             showSelectedOnly: parseBool('sel_only', true),
@@ -100,6 +101,15 @@ export const useDashboardState = () => {
 
     // Benchmark selection
     const [selectedBenchmarks, setSelectedBenchmarks] = useState(initialState.selectedModels);
+    // Baseline key — when set, the matching benchmark is highlighted on the
+    // scatter chart and other points show a %diff badge in the tooltip.
+    const [baselineBenchmarkKey, setBaselineBenchmarkKey] = useState(() => {
+        if (initialState.baselineKey) return initialState.baselineKey;
+        try {
+            const saved = localStorage.getItem('baselineBenchmarkKey');
+            return saved || null;
+        } catch { return null; }
+    });
 
     // Derive initial modelsFilter from selectedModels if modelsFilter is empty
     const deriveInitialModelsFilter = () => {
@@ -165,6 +175,7 @@ export const useDashboardState = () => {
         params.set('points', showDataLabels);
         
         if (selectedBenchmarks.size > 0) [...selectedBenchmarks].forEach(v => params.append('models', v));
+        if (baselineBenchmarkKey) params.set('baseline', baselineBenchmarkKey);
         if (activeFilters.models.size > 0) [...activeFilters.models].forEach(v => params.append('f_models', v));
         if (activeFilters.hardware.size > 0) [...activeFilters.hardware].forEach(v => params.append('f_hw', v));
         if (activeFilters.tp.size > 0) [...activeFilters.tp].forEach(v => params.append('f_tp', v));
@@ -188,9 +199,9 @@ export const useDashboardState = () => {
 
         return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
     }, [
-        chartMode, tputType, costMode, latType, xAxisMax, showPerChip, 
+        chartMode, tputType, costMode, latType, xAxisMax, showPerChip,
         showSelectedOnly, showPareto, showLabels, showDataLabels,
-        selectedBenchmarks, activeFilters
+        selectedBenchmarks, activeFilters, baselineBenchmarkKey
     ]);
 
     return {
@@ -223,6 +234,7 @@ export const useDashboardState = () => {
 
         // Selection
         selectedBenchmarks, setSelectedBenchmarks,
+        baselineBenchmarkKey, setBaselineBenchmarkKey,
         activeFilters, setActiveFilters,
 
         generateShareUrl

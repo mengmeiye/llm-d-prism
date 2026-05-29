@@ -34,6 +34,8 @@ export const FilterPanel = ({
     expandedModels,
     toggleBenchmark,
     toggleModelExpansion,
+    baselineBenchmarkKey,
+    setBaselineBenchmarkKey,
     UnifiedDataTable
 }) => {
     if (!showFilterPanel) return null;
@@ -223,6 +225,8 @@ export const FilterPanel = ({
                 selectedBenchmarks={selectedBenchmarks} setSelectedBenchmarks={setSelectedBenchmarks}
                 setActiveFilters={setActiveFilters} expandedModels={expandedModels}
                 toggleBenchmark={toggleBenchmark} toggleModelExpansion={toggleModelExpansion}
+                baselineBenchmarkKey={baselineBenchmarkKey}
+                setBaselineBenchmarkKey={setBaselineBenchmarkKey}
             />
         </div>
       </div>

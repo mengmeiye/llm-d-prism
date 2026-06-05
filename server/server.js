@@ -313,6 +313,8 @@ const parseServerRegressionReport = (content, filePath, metadataContent, jsonCon
 
         let model = 'Unknown';
         let githubRunId = null;
+        let githubRepository = null;
+        let hardware = 'Unknown';
         if (metadataContent) {
             try {
                 const metaDoc = yaml.load(metadataContent);
@@ -322,6 +324,29 @@ const parseServerRegressionReport = (content, filePath, metadataContent, jsonCon
                     }
                     if (metaDoc.github_run_id) {
                         githubRunId = String(metaDoc.github_run_id);
+                    }
+                    if (metaDoc.github_repository) {
+                        githubRepository = String(metaDoc.github_repository);
+                    }
+                    let accel = metaDoc.accelerator || null;
+                    if (accel) {
+                        accel = String(accel).toLowerCase();
+                        if (accel === 'tpu-v6' || accel.includes('v6')) {
+                            hardware = 'TPU v6e';
+                        } else if (accel === 'tpu-v7' || accel.includes('v7') || accel.includes('tpu7')) {
+                            hardware = 'TPU v7';
+                        } else if (accel === 'gpu') {
+                            hardware = 'GPU';
+                        } else {
+                            hardware = metaDoc.accelerator;
+                        }
+                    } else if (metaDoc.namespace) {
+                        const ns = String(metaDoc.namespace).toLowerCase();
+                        if (ns.includes('tpu')) {
+                            hardware = 'TPU';
+                        } else if (ns.includes('gpu')) {
+                            hardware = 'GPU';
+                        }
                     }
                 }
             } catch (e) {
@@ -357,7 +382,9 @@ const parseServerRegressionReport = (content, filePath, metadataContent, jsonCon
             model,
             model_name: model,
             github_run_id: githubRunId,
-            precision,
+            github_repository: githubRepository,
+            hardware: hardware,
+            precision: precision,
             serving_engine,
             stage,
             duration: durationSeconds,

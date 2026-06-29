@@ -905,26 +905,6 @@ export const UnifiedDataTable = (props) => {
                                              {/* Expanded Table Details */}
                                              {isExpanded && (
                                                  <div className="border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/30 p-4">
-                                                      <div className="mb-3 px-2 text-[10px] sm:text-xs text-slate-500 font-mono flex flex-wrap gap-x-4 gap-y-1 items-center bg-white dark:bg-slate-800 py-2 px-3 rounded border border-slate-200 dark:border-slate-700 shadow-sm">
-                                                          {(() => {
-                                                              const displayRunId = (benchmarkData[0]?.run_id !== undefined && benchmarkData[0]?.run_id !== null && benchmarkData[0]?.run_id !== '')
-                                                                  ? benchmarkData[0].run_id 
-                                                                  : benchmarkData[0]?.id;
-                                                              if (displayRunId === undefined || displayRunId === null || displayRunId === '') return null;
-                                                              return (
-                                                                  <span className="flex items-center gap-1">
-                                                                      <b className="text-slate-700 dark:text-slate-300">Run ID:</b> 
-                                                                      <span className="select-all opacity-75">{displayRunId}</span>
-                                                                  </span>
-                                                              );
-                                                          })()}
-                                                          {benchmarkData[0]?.source_info?.file_identifier && (
-                                                             <span className="flex items-center gap-1 ml-auto">
-                                                                 <b className="text-slate-700 dark:text-slate-300">File:</b> 
-                                                                 <span>{benchmarkData[0].source_info.file_identifier.split('/').pop()}</span>
-                                                             </span>
-                                                          )}
-                                                      </div>
 
                                                       <div className="overflow-x-auto rounded border border-slate-200 dark:border-slate-700">
                                                           <table className="w-full text-left text-slate-600 dark:text-slate-300 text-xs bg-white dark:bg-slate-800">

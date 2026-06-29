@@ -19,7 +19,8 @@
 //   llm-d-benchmark/docs/analysis/benchmark_report/schema_v0_2.py
 
 import yaml from 'js-yaml';
-import { createEntry, normalizeModelName, normalizeHardware } from './dataParser';
+import { v4 as uuidv4 } from 'uuid';
+import { createEntry, normalizeModelName, normalizeHardware } from './dataParser.js';
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -45,35 +46,10 @@ const pct = (val) => {
     return v <= 1 ? v * 100 : v;
 };
 
-// Derive a stable run ID from a report document.
-//
-// run.eid and cfg_id are shared across all runs in the same experiment, so
-// they cannot distinguish individual runs. run.uid is unique per report file
-// and is the only reliable identity key for individual file uploads.
-//
-// Stage grouping (multiple files → one run) requires the directory name as
-// context, which will be available once the directory-picker upload path is
-// implemented.
-const deriveRunId = (doc, filename) => {
-    if (!filename || !filename.includes('/')) {
-        return doc.run?.uid || crypto.randomUUID();
-    }
-    
-    const parts = filename.split('/');
-    parts.pop(); // Remove the file name itself
-    return parts.join('/');
-};
 
-// Derive a human-readable label from scenario context so the user can tell
-// runs apart without seeing raw UUIDs or uninformative filenames.
+
 const deriveRunLabel = (doc, filename) => {
     if (doc.run?.description) return doc.run.description;
-
-    if (filename && filename.includes('/')) {
-        const pathParts = filename.split('/');
-        pathParts.pop(); // Remove the file name itself
-        return pathParts.join('/');
-    }
 
     // Build label from scenario: model · hardware · QPS · stage
     const stack = doc.scenario?.stack || [];
@@ -83,17 +59,14 @@ const deriveRunLabel = (doc, filename) => {
         stack.find(c => c.standardized?.kind === 'inference_engine') ||
         stack[0]
     );
-    const model = primary?.standardized?.model?.name;
-    const hw = primary?.standardized?.accelerator?.model;
-    const qps = doc.scenario?.load?.standardized?.rate_qps;
-    const stage = doc.scenario?.load?.standardized?.stage;
+    const model = primary?.standardized?.model?.name || doc.scenario?.load?.native?.config?.server?.model_name;
+    if (model) return model.split('/').pop();
 
-    const parts = [];
-    if (model) parts.push(model.split('/').pop());
-    if (hw) parts.push(hw.replace(/-\d+GB.*/i, ''));
-    if (qps != null) parts.push(`${qps} QPS`);
-    if (stage != null) parts.push(`stage ${stage}`);
-    if (parts.length > 0) return parts.join(' · ');
+    if (filename && filename.includes('/')) {
+        const pathParts = filename.split('/');
+        pathParts.pop(); // Remove the file name itself
+        return pathParts.join('/');
+    }
 
     // Last resort: filename stripped of the common prefix
     return (filename || "upload")
@@ -287,7 +260,6 @@ export function parseReportV02(yamlText, filename) {
     }
 
     return {
-        runId: deriveRunId(doc, filename),
         runLabel: deriveRunLabel(doc, filename),
         filename,
         runUid: doc.run?.uid || null,

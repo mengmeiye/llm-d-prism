@@ -253,7 +253,7 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
             },
             entries: [
                 {
-                    run_uid: `cloud-${runName}-stage-1`,
+                    run_id: uuidv4(),
                     filename: "benchmark_report_v0.2_stage_1.yaml",
                     raw_report: {
                         version: "0.2",
@@ -273,9 +273,6 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
                                 }
                             }
                         }
-                    },
-                    prism_cloud: {
-                        run: { uid: `${runName}/benchmark_report_v0.2_stage_1.yaml` }
                     }
                 }
             ],
@@ -378,7 +375,7 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
                     configFile = file;
                 } else if (/summary_lifecycle_metrics\.json$/i.test(filename)) {
                     summaryFile = file;
-                } else if (/benchmark_report_v0\.2/i.test(filename) && /\.(ya?ml|json)$/i.test(filename)) {
+                } else if (/\.(ya?ml|json)$/i.test(filename)) {
                     stageFiles.push(file);
                 } else {
                     omittedCount++;
@@ -490,9 +487,7 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
             // 2. Build the entries list for the upload payload (omitting pre-calculated metrics, keeping run_uid and content)
             const payloadEntries = [];
             for (const sf of parsedStages) {
-                const stageParsed = parseReportV02(sf.content, sf.file.name);
-                const runUid = stageParsed ? stageParsed.runUid : 'unknown-uid';
-                
+
                 let rawReportObj = null;
                 try {
                     rawReportObj = sf.file.name.endsWith('.json') ? JSON.parse(sf.content) : yaml.load(sf.content);
@@ -501,14 +496,9 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
                 }
 
                 payloadEntries.push({
-                    run_uid: runUid,
+                    run_id: uuidv4(),
                     filename: sf.file.name,
-                    raw_report: rawReportObj,
-                    prism_cloud: {
-                        run: {
-                            uid: `${group.dirKey}/${sf.file.name}`
-                        }
-                    }
+                    raw_report: rawReportObj
                 });
             }
 
@@ -1457,8 +1447,7 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
                                                                                     stage: parsedStage?.stageIndex,
                                                                                     model_name: normalized?.model_name || 'Unknown',
                                                                                     throughput: normalized?.throughput,
-                                                                                    latency: latencyVal,
-                                                                                    uid: entry.prism_cloud?.run?.uid || ''
+                                                                                    latency: latencyVal
                                                                                 };
                                                                             })
                                                                             .sort((a, b) => (a.stage ?? 0) - (b.stage ?? 0))

@@ -1736,7 +1736,7 @@ export const useDashboardData = (initialState, dashboardState) => {
 
                 for (const sf of bundle.stageFiles) {
                     const identifier = sf.file.webkitRelativePath || sf.file.name;
-                    const record = await parseReportV02(sf.content, identifier);
+                    const record = await parseReportV02(sf.validation?.parsedData || sf.content, identifier);
                     if (record) {
                         // Enrich stage record with bundle metadata and unique runId/runLabel
                         record.runId = bundleRunId;

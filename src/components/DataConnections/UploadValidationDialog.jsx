@@ -501,19 +501,11 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
             // 2. Build the entries list for the upload payload (omitting pre-calculated metrics, keeping run_uid and content)
             const payloadEntries = [];
             for (const sf of parsedStages) {
-
-                let rawReportObj = null;
-                try {
-                    rawReportObj = sf.file.name.endsWith('.json') ? JSON.parse(sf.content) : yaml.load(sf.content);
-                } catch (e) {
-                    console.error("Failed to parse raw report content into JSON object:", e);
-                }
-
                 payloadEntries.push({
                     run_id: uuidv4(),
                     run_description: group.name,
                     filename: sf.file.name,
-                    raw_report: rawReportObj
+                    raw_report: sf.validation?.parsedData || null
                 });
             }
 
@@ -808,7 +800,9 @@ export const UploadValidationDialog = ({ isOpen, onClose, onCommit, existingRunI
                             <Upload size={20} className="text-cyan-500" />
                             Upload and Stage Benchmarks
                         </h2>
-                        <p className="text-xs text-slate-500 mt-1">Validate and stage benchmarks before pushing to local storage or cloud.</p>
+                        <p className="text-xs text-slate-500 mt-1">
+                            Validate, stage, and consolidate benchmarks. Stage reports are stored as structured JSON and reconstructed to YAML on-the-fly.
+                        </p>
                     </div>
                     <button onClick={onClose} className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-full transition-colors">
                         <X size={20} className="text-slate-500" />

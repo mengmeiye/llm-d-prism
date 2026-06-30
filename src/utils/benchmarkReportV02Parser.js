@@ -273,6 +273,7 @@ export function parseReportV02(yamlText, filename) {
         performance,
         observability,
         components,
+        rawReport: doc,
     };
 }
 
@@ -513,6 +514,7 @@ export function stageToEntry(stage) {
             observability: stage.observability || null,
         },
 
+        rawReport: stage.rawReport || null,
         _diagnostics: { msg: [], raw_snapshot: {} },
     });
 }

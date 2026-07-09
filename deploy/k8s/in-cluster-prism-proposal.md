@@ -13,8 +13,8 @@ compares benchmark reports **directly from the PVC**, per namespace, with no
 need to copy results out of the cluster first.
 
 Phase 1 (this proposal) delivers a per-namespace deployment with **no backend
-code changes**. Phase 2 (out of scope here) sketches a centralized,
-RBAC-gated, multi-namespace instance.
+code changes**. Phase 2 (design sketched below) covers a centralized,
+RBAC-gated, cluster-wide instance.
 
 ## Motivation
 
@@ -107,10 +107,105 @@ viewer. This is additive and off by default.
 - Kustomize manifests to run Prism in a namespace against `workload-pvc`.
 - Docs for deploying and (optionally) wiring into `llmdbenchmark run`.
 
-**Out of scope (Phase 2, separate proposal):**
+**Deferred to Phase 2 (design sketched below, delivered separately):**
 - A single centralized Prism reading many namespaces.
 - User-token-based RBAC (oauth-proxy + SubjectAccessReview / impersonation).
 - Reading results via the Kubernetes API instead of a PVC mount.
+
+## Phase 2: cluster-wide Prism (design sketch)
+
+Phase 1 gives one Prism per namespace. A natural follow-up is a **single,
+cluster-wide Prism** — one URL where a user picks any namespace they can access
+and sees its results. This section sketches how, so reviewers can judge the full
+arc; it is not part of the Phase 1 deliverable.
+
+### The hard constraint
+
+PVCs are namespaced, and **a pod can only mount a PVC in its own namespace**.
+There is no "mount PVC from another namespace" primitive. So a single central
+Prism pod *cannot* just mount every namespace's `workload-pvc`. That rules out the
+obvious approach and shapes the three options below.
+
+### Option A — API-based reads (recommended for Phase 2)
+
+One central Prism in its own namespace (e.g. `prism-system`). Instead of mounting
+PVCs, its backend talks to the Kubernetes API: for a chosen namespace it `exec`s
+into that namespace's **data-access pod** — which already mounts `workload-pvc` at
+`/requests` and idles with `sleep infinity` — and streams the result files out.
+This is programmatically the same operation as `kubectl cp` / `kubectl exec … cat`,
+which is exactly how results leave the cluster today.
+
+```
+┌──────────── namespace: prism-system ────────────┐
+│                                                  │
+│  user ──▶ Route ──▶ [oauth-proxy] ──▶ [ Prism ]  │
+│                       (captures         │  k8s   │
+│                        user token)      │  client│
+└─────────────────────────────────────────┼────────┘
+                                           │ exec/read, with user token
+              ┌────────────────────────────┼───────────────┐
+              ▼                             ▼               ▼
+     ns: team-a                    ns: team-b        ns: team-c
+   data-access pod               data-access pod   data-access pod
+   └─ workload-pvc               └─ workload-pvc    └─ workload-pvc
+```
+
+**RBAC is the payoff here.** An `oauth-proxy` sidecar authenticates the user and
+captures their token; Prism forwards *that token* (not its own service account) to
+the Kubernetes API. The cluster then enforces access natively — a user sees a
+namespace only if they already have `pods/exec` (or read) rights there. No
+bespoke authorization logic in Prism, and no over-privileged central service
+account. On OpenShift this is the same pattern console-adjacent tools use
+(`oauth-proxy` with `--openshift-sar` for coarse gating, user-token passthrough
+for fine gating).
+
+**What needs building:**
+- Add a Kubernetes client to the Node backend (`@kubernetes/client-node`).
+- New API routes: list candidate namespaces (those with a data-access pod /
+  `workload-pvc`), list runs in one, and stream a file — mirroring today's
+  `/api/local/*` shape so the frontend changes stay small.
+- Namespace picker in the UI.
+- `oauth-proxy` sidecar + Route, and token passthrough to the API client.
+
+**Caveats:**
+- Depends on the per-namespace data-access pod existing. It is long-lived, but
+  only after a run has set it up; Prism should degrade gracefully when absent.
+- `exec`-based streaming is fine for browsing/plotting; it is not a
+  high-throughput file transfer. Cache reads server-side.
+- Requires the cluster to expose OIDC/OpenShift OAuth for `oauth-proxy`.
+
+### Option B — fan-out deployment (lower-effort fallback)
+
+Keep the Phase 1 per-namespace model, but deploy it from a **single management
+surface**: an Operator or Argo CD ApplicationSet that watches for namespaces
+containing a `workload-pvc` and stamps out a Prism (+ Service + Route) in each.
+
+- **Pro:** zero Prism code change; reuses Phase 1 verbatim; isolation and RBAC
+  stay implicit and simple.
+- **Con:** N pods and N URLs, not one pane of glass. "Cluster-wide" in coverage
+  and management, not in runtime.
+
+Good if the real pain is "I don't want to hand-apply manifests in every
+namespace" rather than "I want one URL."
+
+### Option C — shared storage (not recommended)
+
+Have all runs write to one shared volume (a central PVC, or per-namespace static
+PVs backed by the same NFS export), which the central Prism mounts.
+
+- **Con:** requires an `llm-d-benchmark`-side change to where results are written,
+  and it collapses the namespace isolation of results (one pool, everyone sees
+  everything). Listed for completeness; not advised.
+
+### Recommendation
+
+- If "cluster-wide" means **one URL, pick-any-namespace, RBAC-gated per user** →
+  **Option A**. It directly realizes the original vision and keeps authorization
+  in the cluster where it belongs.
+- If it means **one thing to manage, keep isolation, minimal effort** →
+  **Option B**.
+- Avoid **Option C** unless shared, non-isolated result storage is independently
+  desired.
 
 ## Alternatives considered
 
@@ -139,8 +234,12 @@ viewer. This is additive and off by default.
 - **Phase 1:** small. Manifests + docs already drafted; the only code touchpoints
   are (a) confirming/exposing the Local source in the UI and (b) an optional env
   var for the served path. No new services, no auth, no k8s client.
-- **Phase 2:** medium. k8s client in the backend, oauth-proxy integration, and
-  cross-namespace file streaming.
+- **Phase 2, Option A (API-based, one URL):** medium. k8s client in the backend,
+  new list/stream API routes, a namespace picker, and oauth-proxy + user-token
+  passthrough. No changes to `llm-d-benchmark`.
+- **Phase 2, Option B (fan-out deploy):** small-to-medium, mostly ops. An
+  Operator or Argo CD ApplicationSet over the Phase 1 manifests; no Prism code
+  change.
 
 ## Open questions
 

@@ -1,0 +1,22 @@
+# Vanilla Kubernetes alternative to route.yaml. Edit host + ingressClassName
+# for your cluster, and add TLS as appropriate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: prism
+  labels:
+    app.kubernetes.io/name: prism
+    app.kubernetes.io/part-of: llm-d-benchmark
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: prism.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: prism
+                port:
+                  name: http

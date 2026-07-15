@@ -83,6 +83,14 @@ const getAcceleratorCount = (d) => {
     return extractAcceleratorCount(d.hardware);
 };
 
+// Match function for portable wildcard keys
+const matchesWildcard = (key, pattern) => {
+    const kParts = key.split('::');
+    const pParts = pattern.split('::');
+    if (kParts.length !== pParts.length) return false;
+    return pParts.every((p, i) => p === '*' || p === kParts[i]);
+};
+
 
 
 
@@ -245,6 +253,7 @@ const Dashboard = ({ onNavigateBack, onNavigate, dashboardState: propState, dash
     const [visibleRecommendations, setVisibleRecommendations] = useState(5);
 
     const chartContainerRef = useRef(null);
+    const isFirstLoad = useRef(true);
     const lastMouseRef = useRef(null);
     const [isDragging, setIsDragging] = useState(false);
 
@@ -1277,14 +1286,6 @@ const Dashboard = ({ onNavigateBack, onNavigate, dashboardState: propState, dash
             let changed = false;
             let matchedAny = false;
 
-            // Match function for portable wildcard keys
-            const matchesWildcard = (key, pattern) => {
-                const kParts = key.split('::');
-                const pParts = pattern.split('::');
-                if (kParts.length !== pParts.length) return false;
-                return pParts.every((p, i) => p === '*' || p === kParts[i]);
-            };
-
             prev.forEach(k => {
                 if (typeof k === 'string' && k.includes('*')) {
                     // Portable wildcard key — resolve to actual keys
@@ -1323,12 +1324,57 @@ const Dashboard = ({ onNavigateBack, onNavigate, dashboardState: propState, dash
                     });
                     if (sorted.length > 0) initialSelection.add(getBenchmarkKey(sorted[0]));
                 });
+                if (isFirstLoad.current) isFirstLoad.current = false;
                 return initialSelection;
             }
 
+            // Default view initialization: if no selections/intent and no URL/local filters
+            if (prev.size === 0 && isFirstLoad.current) {
+                isFirstLoad.current = false;
+
+                const hasUrlFilters = Object.keys(initialState || {}).some(key => {
+                    const val = initialState[key];
+                    if (val instanceof Set) {
+                        return val.size > 0;
+                    }
+                    if (Array.isArray(val)) {
+                        return val.length > 0;
+                    }
+                    return false;
+                });
+
+                const hasLocalStorageState = (() => {
+                    try {
+                        const savedSel = localStorage.getItem('prism_selected_benchmarks');
+                        const savedFilt = localStorage.getItem('prism_active_filters');
+                        if (savedSel !== null) return true;
+                        if (savedFilt !== null) {
+                            const parsed = JSON.parse(savedFilt);
+                            return Object.values(parsed).some(arr => Array.isArray(arr) && arr.length > 0);
+                        }
+                        return false;
+                    } catch { return false; }
+                })();
+
+                if (!hasUrlFilters && !hasLocalStorageState) {
+                    const qwenKeys = currentKeys.filter(k => {
+                        const parts = k.split('::');
+                        if (parts.length > 2) {
+                            const modelLower = parts[2].toLowerCase();
+                            return modelLower.includes('qwen3-coder-next') || modelLower.includes('qwen3-code-next');
+                        }
+                        return false;
+                    });
+                    if (qwenKeys.length > 0) {
+                        return new Set(qwenKeys);
+                    }
+                }
+            }
+
+            if (isFirstLoad.current) isFirstLoad.current = false;
             return changed ? next : prev;
         });
-    }, [loading, isRestoringConnections, gcsProfiles, filteredBySource, getBenchmarkKey]);
+    }, [loading, isRestoringConnections, gcsProfiles, filteredBySource, getBenchmarkKey, initialState]);
 
     // Clear baseline if its benchmark is no longer present in the visible
     // dataset (e.g., the user removed an upload or filtered out its source).

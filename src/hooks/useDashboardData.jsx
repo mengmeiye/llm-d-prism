@@ -568,6 +568,18 @@ export const useDashboardData = (initialState, dashboardState) => {
 
                     setSelectedBenchmarks(prev => {
                         if (prev.size > 0) return prev;
+                        // Default to qwen3-coder-next if present
+                        const qwenKeys = Array.from(allKeys).filter(k => {
+                            const parts = k.split('::');
+                            if (parts.length > 2) {
+                                const modelLower = parts[2].toLowerCase();
+                                return modelLower.includes('qwen3-coder-next') || modelLower.includes('qwen3-code-next');
+                            }
+                            return false;
+                        });
+                        if (qwenKeys.length > 0) {
+                            return new Set(qwenKeys);
+                        }
                         return allKeys;
                     });
                 }

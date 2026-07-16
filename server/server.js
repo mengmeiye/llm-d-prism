@@ -203,6 +203,167 @@ app.get('/api/local/file/*', async (req, res) => {
     }
 });
 
+app.get('/api/prefix-cache/data', async (req, res) => {
+    try {
+        let client;
+        const adcPath = process.env.GOOGLE_APPLICATION_DEFAULT_CREDENTIALS;
+        if (adcPath && fs.existsSync(adcPath)) {
+            try {
+                const creds = JSON.parse(fs.readFileSync(adcPath, 'utf8'));
+                if (creds.type === 'authorized_user') {
+                    client = new UserRefreshClient({
+                        clientId: creds.client_id,
+                        clientSecret: creds.client_secret,
+                        refreshToken: creds.refresh_token
+                    });
+                }
+            } catch (e) {
+                console.warn('Failed to parse ADC file:', e);
+            }
+        }
+
+        if (!client) {
+            client = await auth.getClient();
+        }
+        const token = await client.getAccessToken();
+        const accessToken = token.token;
+
+        let allItems = [];
+        let pageToken = '';
+        let hasMore = true;
+        
+        while (hasMore) {
+            const listUrl = `https://storage.googleapis.com/storage/v1/b/llm-d-benchmarks/o?prefix=prefix-cache-offloading/` +
+                (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : '');
+            const response = await fetch(listUrl, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            if (!response.ok) {
+                throw new Error(`Failed to list GCS bucket: ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.items) {
+                allItems = allItems.concat(data.items);
+            }
+            if (data.nextPageToken) {
+                pageToken = data.nextPageToken;
+            } else {
+                hasMore = false;
+            }
+        }
+
+        const reportItems = allItems.filter(item => item.name.endsWith('.yaml'));
+        const results = [];
+
+        await Promise.all(reportItems.map(async (item) => {
+            try {
+                const reportUrl = `https://storage.googleapis.com/storage/v1/b/llm-d-benchmarks/o/${encodeURIComponent(item.name)}?alt=media`;
+                const response = await fetch(reportUrl, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                });
+                if (!response.ok) return;
+
+                const text = await response.text();
+                const doc = yaml.load(text);
+
+                const parts = item.name.split('/');
+                if (parts.length >= 5) {
+                    const tech = parts[1];
+                    const setup = parts[2];
+                    const config = parts[3];
+                    const modelFile = parts[4];
+                    
+                    const modelName = modelFile.replace('.yaml', '');
+                    
+                    const aggregate = doc.results?.request_performance?.aggregate || {};
+                    const throughput = aggregate.throughput?.output_token_rate?.mean || 0;
+                    const qps = aggregate.throughput?.request_rate?.mean || 0;
+                    const totalRate = aggregate.throughput?.total_token_rate?.mean || 0;
+                    const inputRate = Math.max(0, totalRate - throughput);
+                    const latency = aggregate.latency || {};
+                    
+                    const ttft = {
+                        p50: latency.time_to_first_token?.p50 || 0,
+                        p90: latency.time_to_first_token?.p90 || 0,
+                        p99: latency.time_to_first_token?.p99 || 0,
+                        mean: latency.time_to_first_token?.mean || 0
+                    };
+                    
+                    const itl = {
+                        p50: latency.inter_token_latency?.p50 || 0,
+                        p90: latency.inter_token_latency?.p90 || 0,
+                        p99: latency.inter_token_latency?.p99 || 0,
+                        mean: latency.inter_token_latency?.mean || 0
+                    };
+                    
+                    const tpot = {
+                        p50: latency.time_per_output_token?.p50 || 0,
+                        p90: latency.time_per_output_token?.p90 || 0,
+                        p99: latency.time_per_output_token?.p99 || 0,
+                        mean: latency.time_per_output_token?.mean || 0
+                    };
+                    
+                    const ntpot = {
+                        p50: latency.normalized_time_per_output_token?.p50 || 0,
+                        p90: latency.normalized_time_per_output_token?.p90 || 0,
+                        p99: latency.normalized_time_per_output_token?.p99 || 0,
+                        mean: latency.normalized_time_per_output_token?.mean || 0
+                    };
+
+                    const e2e = {
+                        p50: latency.request_latency?.p50 || 0,
+                        p90: latency.request_latency?.p90 || 0,
+                        p99: latency.request_latency?.p99 || 0,
+                        mean: latency.request_latency?.mean || 0
+                    };
+                    
+                    let workloadSize = '30k';
+                    if (config.includes('50k')) workloadSize = '50k';
+                    else if (config.includes('70k')) workloadSize = '70k';
+                    
+                    const engineComponent = doc.scenario?.stack?.find(c => c.standardized?.kind === 'inference_engine') || doc.scenario?.stack?.[0] || {};
+                    const stdAcc = engineComponent.standardized?.accelerator || {};
+                    
+                    const tp = stdAcc.parallelism?.tp || 1;
+                    const replicas = engineComponent.standardized?.replicas || 1;
+                    const gpu = stdAcc.model || 'Unknown';
+                    const engineLabel = engineComponent.standardized?.tool || 'vLLM';
+                    const engineVersion = engineComponent.standardized?.tool_version || '';
+                    
+                    results.push({
+                        tech,
+                        setup,
+                        config,
+                        workloadSize,
+                        model: modelName,
+                        throughput,
+                        qps,
+                        totalRate,
+                        inputRate,
+                        ttft,
+                        itl,
+                        tpot,
+                        ntpot,
+                        e2e,
+                        tp,
+                        replicas,
+                        gpu,
+                        engineLabel,
+                        engineVersion
+                    });
+                }
+            } catch (e) {
+                console.error(`Error loading prefix cache report ${item.name} from GCS:`, e);
+            }
+        }));
+
+        res.json(results);
+    } catch (err) {
+        console.error("Error loading prefix cache GCS reports", err);
+        res.status(500).json({ error: "Failed to load prefix cache reports" });
+    }
+});
+
 // --- API: GCS Proxy ---
 // Proxies requests to Google Cloud Storage for private buckets.
 // Uses server's ADC for authentication.

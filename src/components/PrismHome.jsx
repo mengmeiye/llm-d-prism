@@ -90,9 +90,10 @@ const PrismHome = ({ onNavigate }) => {
                             </button>
                         </div>
 
-                        {/* Path 2: Prefix Cache Offloading (Coming Soon) */}
+                        {/* Path 2: Prefix Cache Offloading */}
                         <div
-                            className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-xl p-3.5 hover:-translate-y-1 transition-all duration-300 cursor-not-allowed flex flex-col h-full overflow-hidden opacity-70 hover:border-emerald-500/20 hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] order-3 lg:order-5"
+                            onClick={() => onNavigate('prefix-cache-offloading')}
+                            className="group relative bg-slate-900/80 backdrop-blur-xl shadow-lg border border-slate-800 rounded-xl p-3.5 hover:-translate-y-1 transition-all duration-300 cursor-pointer flex flex-col h-full overflow-hidden hover:border-emerald-500/20 hover:shadow-[0_0_30px_rgba(16,185,129,0.08)] order-3 lg:order-5"
                         >
                             <h3 className="text-xs xl:text-sm font-bold mb-1.5 text-white group-hover:text-emerald-400 transition-colors leading-tight">
                                 Prefix cache offloading
@@ -125,8 +126,8 @@ const PrismHome = ({ onNavigate }) => {
                                  </div>
                              </div>
  
-                            <button className="w-full py-1.5 bg-slate-800/50 text-slate-400 rounded-lg font-medium text-[10px] flex items-center justify-center border border-slate-700/50 cursor-not-allowed">
-                                Coming soon
+                            <button className="w-full py-1.5 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-lg font-medium text-[10px] flex items-center justify-center hover:from-cyan-400 hover:to-blue-500 shadow-[0_0_15px_rgba(34,211,238,0.2)] transform group-hover:scale-[1.02] transition-all">
+                                Launch <ArrowRight className="ml-1 h-3 w-3" />
                             </button>
                         </div>
 
